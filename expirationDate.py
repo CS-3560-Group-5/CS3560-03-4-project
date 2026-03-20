@@ -27,9 +27,9 @@ class expirationDate:
     ## use case methods 
     # function to check this expiration date to see if its passed its given restock day. If so, it creates a restock request.
     # this should be checked at the beginning of every day
-    def checkExpiration() -> None:
-        # TODO : implement
-        return NotImplemented
+    def checkExpiration() -> bool:
+        #If the current date is after the expiration date, the item is expired.
+        return ((datetime.now() - self.dateExpires) > 0)
 
     ## simple update method
     def updateDateExpires(self, expireNew: datetime) -> None:
