@@ -19,9 +19,7 @@ class expirationDate:
         self.dateExpires: datetime = expireIn
         # how many days before something expires should it be restocked
         self.restockDaysBeforeExpire: int = daysBeforeExpireIn
-        # the restock request for this. set blank by default and is made later based on if the expiration date lapses/the expiration threshold passes
-        self.request: restockRequest
-
+        
     ## use case methods 
     # function to check this expiration date to see if its passed its given restock day. If so, it creates a restock request.
     # this should be checked at the beginning of every day
@@ -36,8 +34,6 @@ class expirationDate:
     def updateRestockDaysBeforeExpire(self, newDays: int) -> None:
         self.restockDaysBeforeExpire = newDays
 
-    def updateRequest(self, newRequest: restockRequest) -> None:
-        self.request = newRequest
 
     ## simple return method
     def returnDateExpires(self) -> datetime:
@@ -46,5 +42,4 @@ class expirationDate:
     def returnRestockDaysBeforeExpire(self) -> int:
         return self.restockDaysBeforeExpire
 
-    def returnRequest(self) -> restockRequest:
-        return self.request
+
