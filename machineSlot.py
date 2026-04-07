@@ -15,7 +15,7 @@ if TYPE_CHECKING:
 # class used to keep track of what product is in each of the vending machines slots. tracks that slots totals and vitals as well.
 class machineSlot:
     # full constructor
-    def __init__(self, numpadIn: int, countIn: int, maxIn: int, restockAtThresholdIn: float, expDatesIn: List[expirationDate]) -> None:
+    def __init__(self, numpadIn: int, countIn: int, maxIn: int, restockAtThresholdIn: float, expDatesIn: List[expirationDate], posIn: int) -> None:
         # each slot has its own code that the machine uses. these can include numbers and letters. this is the code thats also used for customers to buy a product.
         self.numpadCode: str = numpadIn
         # how much of a product is in a slot
@@ -28,6 +28,8 @@ class machineSlot:
         self.expDates: List[expirationDate] = expDatesIn
         # the restock request for a machine slot. is made blank because its made later on once the restock threshold is hit
         self.request: restockRequest
+        # the position of the product in a slot with this expiration date. starts at 1
+        self.slotPosition: int = posIn
 
     ## use case methods 
     # a function that runs to check if a machine slot has fallen below its product threshold. If so, it makes a restock request for itself
@@ -73,6 +75,9 @@ class machineSlot:
 
     def updateRequest(self, newRequest: restockRequest) -> None:
         self.request = newRequest
+        
+    def updateSlotPosition(self, newPos: int) -> None:
+        self.slotPosition = newPos
 
     ## simple return methods
     def returnNumpadCode(self) -> str:
@@ -89,4 +94,7 @@ class machineSlot:
 
     def returnRequest(self) -> restockRequest:
         return self.request
+
+    def returnSlotPosition(self) -> int:
+        return self.slotPosition
 
