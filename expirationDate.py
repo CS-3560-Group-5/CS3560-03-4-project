@@ -17,7 +17,7 @@ class expirationDate:
     def __init__(self, expireIn: datetime,  daysBeforeExpireIn: int) -> None:
         # expiration date stored in datetime
         self.dateExpires: datetime = expireIn
-        # the position of the product in a slot with this expiration date. starts at 1
+        # how many days before something expires should it be restocked
         self.restockDaysBeforeExpire: int = daysBeforeExpireIn
         # the restock request for this. set blank by default and is made later based on if the expiration date lapses/the expiration threshold passes
         self.request: restockRequest
