@@ -11,6 +11,9 @@ class technician(serviceWorker):
     def __init__(self, idIn: str, nameIn: str, phoneIn: str, emailIn: str, companyIn: str, requestsIn: List[maintenanceRequest]) -> None:
         super().__init__(idIn, nameIn, phoneIn, emailIn, companyIn, requestsIn)
 
+#Currently, function only updates the request in the worker's request list and not the machine's
     def resolveRequest(self, toResolve: maintenanceRequest, dateResolved: datetime) -> None:
-        # TODO: implement
-        return NotImplemented
+        for i in range(len(self.requests)):
+            if self.requests[i].returnMaintenanceRequestID() == toResolve.returnMaintenanceRequestID():
+                self.requests[i].updateDateResolved(dateResolved)
+                break
