@@ -1,66 +1,74 @@
 ## machineSlot class
-## 3-15-2026
+## 4/10/2026
 
 # type hint imports
 from __future__ import annotations
-from typing import TYPE_CHECKING
-from typing import List
+from typing import TYPE_CHECKING, List
 
 if TYPE_CHECKING:
-    from restockRequest import restockRequest
     from expirationDate import expirationDate
 
-# actual imports
+# actual import - needed at runtime for creating restock requests
+from restockRequest import restockRequest
 
-# class used to keep track of what product is in each of the vending machines slots. tracks that slots totals and vitals as well.
+# tracks what product is in each vending machine slot, including count, thresholds, and expiration dates
 class machineSlot:
     # full constructor
-    def __init__(self, numpadIn: int, countIn: int, maxIn: int, restockAtThresholdIn: float, expDatesIn: List[expirationDate], posIn: int) -> None:
-        # each slot has its own code that the machine uses. these can include numbers and letters. this is the code thats also used for customers to buy a product.
+    def __init__(self, numpadIn: str, countIn: int, maxIn: int, restockAtThresholdIn: float, expDatesIn: List[expirationDate], posIn: int) -> None:
+        # the code the customer enters to buy this product (e.g. "A1")
         self.numpadCode: str = numpadIn
-        # how much of a product is in a slot
+        # current number of products in this slot
         self.productCount: int = countIn
-        # the max amount of product that can fit in each slot
+        # max number of products this slot can hold
         self.maxAmount: int = maxIn
-        # the threshold at which a product should be restocked. is a percentage
+        # percentage threshold - if count/max falls at or below this, trigger a restock request
         self.restockAtThreshold: float = restockAtThresholdIn
-        # the expiration dates for this slot. not always needed/can be blank because some products never expire (non-food items)
+        # list of expiration dates for products in this slot (empty if product never expires)
         self.expDates: List[expirationDate] = expDatesIn
-        # the restock request for a machine slot. is made blank because its made later on once the restock threshold is hit
-        self.request: restockRequest
-        # the position of the product in a slot with this expiration date. starts at 1
+        # the active restock request for this slot (set when threshold is hit)
+        self.request: restockRequest = None
+        # position of this slot in the machine, starts at 1
         self.slotPosition: int = posIn
 
-    ## use case methods 
-    # a function that runs to check if a machine slot has fallen below its product threshold. If so, it makes a restock request for itself
-    # this function is ran every time a transaction is made
-    def checkProductThreshold(self) -> None:
-        # TODO : Write check threshold
-        return NotImplemented
-    
-    # a function that checks all expiration dates for ones that need to be restocked
-    def checkAllExpirationDates(self) -> None:
-        # TODO : implement
-        return NotImplemented
+    ## use case methods
 
-    ## update and return methods for list
-    # append value to requests
+    # checks if the product count has fallen at or below the restock threshold percentage
+    # should be called every time a transaction is made
+    def checkProductThreshold(self) -> None:
+        # calculate current fill percentage and compare to threshold
+        if self.productCount / self.maxAmount <= self.restockAtThreshold:
+            # create a restock request for this slot (restocker assigned later by machine)
+            self.request = restockRequest("Low stock", None, self)
+
+    # checks all expiration dates in this slot and creates a restock request if any are expired
+    # should be called at the start of each day
+    def checkAllExpirationDates(self) -> None:
+        for exp in self.expDates:
+            # if any expiration date has passed, make a restock request and stop
+            if exp.checkExpiration():
+                self.request = restockRequest("Expired product", None, self)
+                break
+
+    ## expiration date list methods
+
+    # add a new expiration date to this slot
     def appendExpDate(self, newExpDate: expirationDate) -> None:
         self.expDates.append(newExpDate)
 
-    # replace value at index in expDates with expDate
-    def replaceExpDate(self, newExpDate: expirationDate, index: int ) -> None:
+    # replace the expiration date at a given index
+    def replaceExpDate(self, newExpDate: expirationDate, index: int) -> None:
         self.expDates[index] = newExpDate
 
-    # return value from expDates list at index
+    # return the expiration date at a given index
     def returnExpDate(self, index: int) -> expirationDate:
         return self.expDates[index]
-    
-    # return entire expDates list
+
+    # return the full expiration date list
     def returnExpDates(self) -> List[expirationDate]:
         return self.expDates
 
-    ## simple update methods [doesnt check for bounds!!]
+    ## simple update methods
+
     def updateNumpadCode(self, newCode: str) -> None:
         self.numpadCode = newCode
 
@@ -75,17 +83,18 @@ class machineSlot:
 
     def updateRequest(self, newRequest: restockRequest) -> None:
         self.request = newRequest
-        
+
     def updateSlotPosition(self, newPos: int) -> None:
         self.slotPosition = newPos
 
     ## simple return methods
+
     def returnNumpadCode(self) -> str:
         return self.numpadCode
 
     def returnProductCount(self) -> int:
         return self.productCount
-    
+
     def returnMaxAmount(self) -> int:
         return self.maxAmount
 
@@ -97,4 +106,3 @@ class machineSlot:
 
     def returnSlotPosition(self) -> int:
         return self.slotPosition
-
