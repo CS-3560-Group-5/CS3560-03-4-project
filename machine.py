@@ -55,14 +55,14 @@ class machine:
     # currently assigns to the technician with the least current requests
     def malfunctionDetected(self, techAssigned: technician) -> None:
         #Initializing the values to find the technician with the least requests
-        currentMin = len(self.technicians[i].returnRequest)
+        currentMin = len(self.technicians[i].returnRequest())
         minInd = 0
 
         #Traversing through the list to find the technician with the least requests
         for i in range(len(self.technicians)):
-            if len(self.technicians[i].returnRequest) < currentMin:
+            if len(self.technicians[i].returnRequest()) < currentMin:
                 minInd = i
-                currentMin = len(self.technicians[i].returnRequest)
+                currentMin = len(self.technicians[i].returnRequest())
         
         #Creating a new request and appending it to both the machine's and the technician's request lists
         newReq = maintenanceRequest("Malfunction", self.technicians[i])
@@ -80,14 +80,14 @@ class machine:
         if timeSinceLast >= self.daysBetweenServices:
             #Initializing the values to find the technician with the least requests
             self.currentState = "Requires Service"
-            currentMin = len(self.technicians[i].returnRequest)
+            currentMin = len(self.technicians[i].returnRequest())
             minInd = 0
     
             #Traversing through the list to find the technician with the least requests
             for i in range(len(self.technicians)):
-                if len(self.technicians[i].returnRequest) < currentMin:
+                if len(self.technicians[i].returnRequest()) < currentMin:
                     minInd = i
-                    currentMin = len(self.technicians[i].returnRequest)
+                    currentMin = len(self.technicians[i].returnRequest())
         
             #Creating a new request and appending it to both the machine's and the technician's request lists
             newReq = maintenanceRequest("Service", self.technicians[i])
