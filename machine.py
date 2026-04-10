@@ -52,23 +52,57 @@ class machine:
 
     ## Use case functions
     # function called when a machine malfunction is detected. this creates a new maintenanceRequest for one of the machines assigned technicians
+    # currently assigns to the technician with the least current requests
     def malfunctionDetected(self, techAssigned: technician) -> None:
-        # TODO : implement
-        return NotImplemented
+        #Initializing the values to find the technician with the least requests
+        currentMin = len(self.technicians[i].returnRequest)
+        minInd = 0
+
+        #Traversing through the list to find the technician with the least requests
+        for i in range(len(self.technicians)):
+            if len(self.technicians[i].returnRequest) < currentMin
+                minInd = i
+                currentMin = len(self.technicians[i].returnRequest)
+        
+        #Creating a new request and appending it to both the machine's and the technician's request lists
+        newReq = maintenanceRequest("Malfunction", self.technicians[i])
+        self.technicians[i].appendRequest(newReq)
+        self.requests.append(newReq)
     
     # function called to check scheduled service date. if service date has been reached, a new maintenanceRequest is made for a technician
     # this should be ran at the beginning of each day
+    # checks and assigns technician similar to the above function
     def checkServiceDate(self, techAssigned: technician) -> None:
-        # TODO : implement
-        return NotImplemented
+        
+        currentDate = datetime.now()
+        timeSinceLast = int(currentDate - self.dateLastServiced)
+        
+        if timeSinceLast >= self.daysBetweenServices
+            #Initializing the values to find the technician with the least requests
+            self.currentState = "Requires Service"
+            currentMin = len(self.technicians[i].returnRequest)
+            minInd = 0
     
-    # function called to record a transaction 
-    def recordTransaction(self, productPurchased: product, saleType: str) -> None:
-        # TODO : implement. also fix saleType input type
-        return NotImplemented
+            #Traversing through the list to find the technician with the least requests
+            for i in range(len(self.technicians)):
+                if len(self.technicians[i].returnRequest) < currentMin
+                    minInd = i
+                    currentMin = len(self.technicians[i].returnRequest)
+        
+            #Creating a new request and appending it to both the machine's and the technician's request lists
+            newReq = maintenanceRequest("Service", self.technicians[i])
+            self.technicians[i].appendRequest(newReq)
+            self.requests.append(newReq)
     
+    # functions called to record a transaction, depending on the type
+    def recordTransaction(self, productPurchased: product, sale: cardSale) -> None:
+        self.transactions.append(sale)
+
+    def recordTransaction(self, productPurchased: product, sale: cashSale) -> None:
+        self.transactions.append(sale)
+        
     # function called to update machine inventory
-    def updateInventory(self, productDecremented: product) -> None:
+    def updateInventory(self, productChanged: product) -> None:
         # TODO : implement
         return NotImplemented
     
