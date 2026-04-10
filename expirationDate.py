@@ -1,5 +1,5 @@
 ## expirationDate class
-## 3-15-2026
+## 4-10-2026
 
 # type hint imports
 from __future__ import annotations
@@ -23,9 +23,9 @@ class expirationDate:
     ## use case methods 
     # function to check this expiration date to see if its passed its given restock day. If so, it creates a restock request.
     # this should be checked at the beginning of every day
-    def checkExpiration() -> bool:
+    def checkExpiration(self) -> bool:
         #If the current date is after the expiration date, the item is expired.
-        return ((datetime.now() - self.dateExpires) > 0)
+        return datetime.datetime.now() > self.dateExpires
 
     ## simple update method
     def updateDateExpires(self, expireNew: datetime) -> None:
