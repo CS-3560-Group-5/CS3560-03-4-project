@@ -60,7 +60,7 @@ class machine:
 
         #Traversing through the list to find the technician with the least requests
         for i in range(len(self.technicians)):
-            if len(self.technicians[i].returnRequest) < currentMin
+            if len(self.technicians[i].returnRequest) < currentMin:
                 minInd = i
                 currentMin = len(self.technicians[i].returnRequest)
         
@@ -77,7 +77,7 @@ class machine:
         currentDate = datetime.now()
         timeSinceLast = int(currentDate - self.dateLastServiced)
         
-        if timeSinceLast >= self.daysBetweenServices
+        if timeSinceLast >= self.daysBetweenServices:
             #Initializing the values to find the technician with the least requests
             self.currentState = "Requires Service"
             currentMin = len(self.technicians[i].returnRequest)
@@ -85,7 +85,7 @@ class machine:
     
             #Traversing through the list to find the technician with the least requests
             for i in range(len(self.technicians)):
-                if len(self.technicians[i].returnRequest) < currentMin
+                if len(self.technicians[i].returnRequest) < currentMin:
                     minInd = i
                     currentMin = len(self.technicians[i].returnRequest)
         
