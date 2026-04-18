@@ -2,13 +2,13 @@
 from __future__ import annotations
 from typing import List
 from typing import TYPE_CHECKING
-from abc import ABC, abstractmethod
 
 if TYPE_CHECKING:
+    from maintenanceRequest import maintenanceRequest
     from machine import machine
+import datetime
 
-class serviceWorker(ABC):
-    @abstractmethod
+class serviceWorker():
     def __init__(self, idIn: str, assignedMachineIn: machine, nameIn: str, phoneIn: str, emailIn: str, companyIn: str) -> None:
         self.employeeID: str = idIn
         self.assignedMachine: machine = assignedMachineIn
@@ -18,8 +18,12 @@ class serviceWorker(ABC):
         self.company: str = companyIn
 
     # functions
-    def resolveRequest(self, toResolve, dateResolved) -> None:
-        pass
+    # finds the matching request by ID and stamps it with the resolved date
+    def resolveRequest(self, toResolve: maintenanceRequest, dateResolved: datetime) -> None:
+        for i in range(len(self.requests)):
+            if self.requests[i].returnMaintenanceRequestID() == toResolve.returnMaintenanceRequestID():
+                self.requests[i].updateDateResolved(dateResolved)
+                break
 
     # simple update methods
     def updateEmployeeID(self, newID: str) -> None:

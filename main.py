@@ -6,10 +6,9 @@ from typing import List
 from machine import machine
 from product import product
 from maintenanceRequest import maintenanceRequest
-from technician import technician
-from restocker import restocker
-#from cardSale import cardSale
-#from cashSale import cashSale
+from serviceWorker import serviceWorker
+from cardSale import cardSale
+from cashSale import cashSale
 #from coin import coin
 #from bill import bill
 
@@ -40,7 +39,7 @@ for row in all:             # put every machine into memory with correct info
 cursor.execute("SELECT * FROM serviceworker")
 all = cursor.fetchall()
 for row in all:
-    serviceWorkerList.append(technician(row[0], machineList[row[1] - 1], row[2], row[3], row[4], row[5]))
+    serviceWorkerList.append(serviceWorker(row[0], machineList[row[1] - 1], row[2], row[3], row[4], row[5]))
 
 # setting up maintenanceRequests based on db info
 cursor.execute("SELECT * FROM maintenancerequest")
@@ -57,8 +56,9 @@ for row in all:
 # setting up transaction based on db info
 cursor.execute("SELECT * FROM `transaction`")
 all = cursor.fetchall()
-for row in all:
-    
+#for row in all:
+ #   transactionList.append(transaction(1,1,1,1,1,1))
+
 
 
 
