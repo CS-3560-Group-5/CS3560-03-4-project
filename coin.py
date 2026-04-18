@@ -1,23 +1,19 @@
 ## coin class
 ## 4-6-2026
+from __future__ import annotations
 from currency import currency
-import mysql.connector
+from typing import TYPE_CHECKING
 
-# setting up DB cursor
-machDB = mysql.connector.connect(
-    host="localhost",
-    user="interface",
-    password="password",
-    database = "vendingmachine"
-)
-cursor = machDB.cursor()
+if TYPE_CHECKING: 
+    from moneyHandler import moneyHandler
 
 # coin class
 class coin(currency):
-    def __init__(self, worthIn: float, maxAmtIn: int, curAmtIn: int) -> None:
-        super().__init__(worthIn, curAmtIn)
+    def __init__(self, selfID: int, moneyHandlerIn: moneyHandler,  currAmtIn: int, maxAmtIn: int, worthIn: float) -> None:
+        super().__init__(selfID, moneyHandlerIn, currAmtIn, worthIn)
         self.maxAmount: int = maxAmtIn
 
+    # update and return functions
     def updateMaxAmount(self, newMax: int) -> None:
         self.maxAmount = newMax
 

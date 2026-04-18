@@ -9,7 +9,6 @@ from typing import Union
 if TYPE_CHECKING:
     from serviceWorker import serviceWorker
     from moneyHandler import moneyHandler
-    from machine import machine
 
 # actual imports
 import datetime
@@ -54,9 +53,6 @@ class restockRequest:
 
     def updateAssignedRestocker(self, newRestocker: serviceWorker) -> None:
         self.assignedRestocker = newRestocker
-
-    def updateRequestCaller(self, newCaller: Union[moneyHandler, machineSlot, expirationDate]) -> None:
-        self.requestCaller = newCaller
 
     ## simple return methods
     def returnMaintenanceRequestID(self) -> str:

@@ -6,7 +6,8 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, List
 
 if TYPE_CHECKING:
-    from expirationDate import expirationDate
+    from product import product
+    from restockRequest import restockRequest
 
 # actual import - needed at runtime for creating restock requests
 from restockRequest import restockRequest
@@ -14,19 +15,19 @@ from restockRequest import restockRequest
 # tracks what product is in each vending machine slot, including count, thresholds, and expiration dates
 class machineSlot:
     # full constructor
-    def __init__(self, numpadIn: str, countIn: int, maxIn: int, restockAtThresholdIn: float, posIn: int) -> None:
+    def __init__(self, numpadIn: str, productIn: product, restockRequestIn: restockRequest, countIn: int, maxIn: int, restockAtThresholdIn: float) -> None:
         # the code the customer enters to buy this product (e.g. "A1")
         self.numpadCode: str = numpadIn
+        # the product at this slot
+        self.productHeld: product = productIn
+        # the restock request for this slot (set when threshold is hit)
+        self.request: restockRequest = restockRequestIn
         # current number of products in this slot
         self.productCount: int = countIn
         # max number of products this slot can hold
         self.maxAmount: int = maxIn
         # percentage threshold - if count/max falls at or below this, trigger a restock request
         self.restockAtThreshold: float = restockAtThresholdIn
-        # the active restock request for this slot (set when threshold is hit)
-        self.request: restockRequest = None
-        # position of this slot in the machine, starts at 1
-        self.slotPosition: int = posIn
 
     ## use case methods
 
@@ -48,6 +49,8 @@ class machineSlot:
                 break
 
     ## simple update methods
+    def updateProduct(self, newProduct: product) -> None:
+        self.productHeld = newProduct
 
     def updateNumpadCode(self, newCode: str) -> None:
         self.numpadCode = newCode
@@ -64,8 +67,6 @@ class machineSlot:
     def updateRequest(self, newRequest: restockRequest) -> None:
         self.request = newRequest
 
-    def updateSlotPosition(self, newPos: int) -> None:
-        self.slotPosition = newPos
 
     ## simple return methods
 
@@ -83,6 +84,6 @@ class machineSlot:
 
     def returnRequest(self) -> restockRequest:
         return self.request
-
-    def returnSlotPosition(self) -> int:
-        return self.slotPosition
+    
+    def returnProductHeld(self) -> product:
+        return self.productHeld

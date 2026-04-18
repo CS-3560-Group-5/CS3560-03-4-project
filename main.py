@@ -11,8 +11,9 @@ from cardSale import cardSale
 from cashSale import cashSale
 from machineSlot import machineSlot
 from moneyHandler import moneyHandler
-#from coin import coin
-#from bill import bill
+from coin import coin
+from bill import bill
+from perishableItem import perishableItem
 
 ## setting up db cursor
 machDB = mysql.connector.connect(
@@ -28,10 +29,14 @@ machineList = []
 serviceWorkerList = []
 maintenenceRequestList = []
 productList = []
-transactionList = []
+cardSaleList = []
+cashSaleList = []
 machineSlotList = []
 restockRequestList = []
 moneyHandlerList = []
+perishableItemList = []
+billList = []
+coinList = []
 
 # setting up machines based on db info
 cursor.execute("SELECT * FROM machine")
@@ -63,9 +68,9 @@ cursor.execute("SELECT * FROM `transaction`")
 all = cursor.fetchall()
 for row in all:
     if row[7] != None:      # if cashGiven is none/null, then its a cardsale not a cash sale
-        transactionList.append(cashSale(row[0], productList[row[1] - 1], row[2], row[3], row[4], row[7]))
+        cardSaleList.append(cashSale(row[0], productList[row[1] - 1], row[2], row[3], row[4], row[7]))
     else:
-        transactionList.append(cardSale(row[0], productList[row[1] - 1], row[2], row[3], row[4], row[5], row[6]))
+        cashSaleList.append(cardSale(row[0], productList[row[1] - 1], row[2], row[3], row[4], row[5], row[6]))
 
 # setting up moneyHandlers
 cursor.execute("SELECT * FROM moneyhandler")
@@ -87,18 +92,37 @@ for row in all:
 cursor.execute("SELECT * FROM MachineSlot")
 all = cursor.fetchall()
 for row in all:
-    machineSlotList.append(machineSlot(row[0], row[1], row[2], row[6], row[4], row[3], row[5]))
+    if row[1] != None and row[2] != None:
+        machineSlotList.append(machineSlot(row[0], productList[row[1] - 1], restockRequestList[row[2] - 1], row[3], row[4], row[5]))
+    elif row[1] != None and row[2] == None:
+        machineSlotList.append(machineSlot(row[0], productList[row[1] - 1], None, row[3], row[4], row[5]))
+    else:
+        machineSlotList.append(machineSlot(row[0], None, None, row[3], row[4], row[5]))
+  
+# setting up perishableItem
+cursor.execute("SELECT * FROM perishableitem")
+all = cursor.fetchall()
+for row in all:
+    # look for the correct index of the machineSlot object. Needed because this key is a string and not an int like the others
+    index = 0
+    for slot in machineSlotList:
+        if row[1] == slot.returnNumpadCode():
+            break
+        index += 1
 
+    if row[2] != None:
+        perishableItemList.append(perishableItem(row[0], machineSlotList[index], restockRequestList[row[2] - 1], row[3], row[4], row[5]))
+    else:
+        perishableItemList.append(perishableItem(row[0], machineSlotList[index], None, row[3], row[4], row[5]))
 
-
-
-
-
-
-
-
-
-
+# setting up currency (coins and bills)
+cursor.execute("SELECT * FROM currency")
+all = cursor.fetchall()
+for row in all:
+    if row[3] != None:
+        billList.append(bill(row[0], row[1], row[2], row[4]))
+    else:
+        coinList.append(coin(row[0], row[1], row[2], row[3], row[4]))
 
 
 
