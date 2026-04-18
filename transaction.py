@@ -9,11 +9,12 @@ if TYPE_CHECKING:
     from product import product
 
 # actual imports
-from abc import ABC     # for abstract class implementation
+from abc import ABC, abstractmethod     # for abstract class implementation
 import datetime
 
 # this is an abstract class used in the implementation of the cardSale and cashSale classes
 class transaction(ABC):
+    @abstractmethod
     # Notes :
     # - a transaction object doesn't keep track of the price of the product bought because the product bought is linked to this class and has the price there
     # - a transaction object can only have one product at a time. this is because customers buy things from a vending machine one at a time.
@@ -58,3 +59,68 @@ class transaction(ABC):
         return self.saleDateTime
     
 
+# cashSale class
+# 3/15/2026
+
+# class to implement cash transaction recording. inherits transaction class
+class cashSale(transaction):
+
+    def __init__(self, itemIn: product, cashGivenIn: float, changeDisIn: float) -> None:
+        # used to keep track of the money the customer gave to the machine
+        self.cashGiven: float = cashGivenIn
+        # used to record how much change was given back to the customer
+        self.changeDispensed: float = changeDisIn
+        # call inherited init
+        super().__init__(itemIn)
+
+    ## simple update methods
+    def updateCashGiven(self, newGiven: float) -> None:
+        self.cashGiven = newGiven
+
+    def updateChangeDispensed(self, newChange: float) -> None:
+        self.changeDispensed = newChange
+
+    ## simple return methods
+    def returnCashGiven(self) -> float:
+        return self.cashGiven
+    
+    def returnChangeDispensed(self) -> float:
+        return self.changeDispensed
+    
+## cardSale class
+## 3/15/2026
+
+# type hint imports
+from __future__ import annotations
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from product import product
+
+# actual imports
+from transaction import transaction
+
+# class to implement card transaction recording. inherits transaction class
+class cardSale(transaction):
+    # init function
+    def __init__(self, itemIn: product, feeIn: float, accountIn: str) -> None:
+        # used to keep track of the fee charged to the customers card (if any)
+        self.cardFee: float = feeIn
+        # used to record what account was charged for the transaction
+        self.accountCharged: str = accountIn
+        # call inherited init
+        super().__init__(itemIn)
+
+    ## simple update methods
+    def updateCardFee(self, newFee: float) -> None:
+        self.cardFee = newFee
+
+    def updateAccountCharged(self, newAccount: str) -> None:
+        self.accountCharged = newAccount
+
+    ## simple return methods
+    def returnCardFee(self) -> float:
+        return self.cardFee
+
+    def returnAccountCharged(self) -> str:
+        return self.accountCharged

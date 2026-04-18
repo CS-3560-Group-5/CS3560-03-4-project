@@ -1,34 +1,27 @@
 ## serviceWorker superclass
-## Refactored to consolidate shared logic from restocker and technician
 from __future__ import annotations
 from typing import List
+from typing import TYPE_CHECKING
 from abc import ABC, abstractmethod
 
+if TYPE_CHECKING:
+    from machine import machine
+
 class serviceWorker(ABC):
-    def __init__(self, idIn: str, nameIn: str, phoneIn: str, emailIn: str, companyIn: str, requestsIn: List) -> None:
+    @abstractmethod
+    def __init__(self, idIn: str, assignedMachineIn: machine, nameIn: str, phoneIn: str, emailIn: str, companyIn: str) -> None:
         self.employeeID: str = idIn
+        self.assignedMachine: machine = assignedMachineIn
         self.name: str = nameIn
         self.phoneNumber: str = phoneIn
         self.email: str = emailIn
         self.company: str = companyIn
-        self.requests: List = requestsIn
 
-    @abstractmethod
+    # functions
     def resolveRequest(self, toResolve, dateResolved) -> None:
         pass
 
-    def appendRequest(self, newRequest) -> None:
-        self.requests.append(newRequest)
-
-    def replaceRequest(self, newRequest, index: int) -> None:
-        self.requests[index] = newRequest
-
-    def returnRequest(self, index: int):
-        return self.requests[index]
-
-    def returnRequests(self) -> List:
-        return self.requests
-
+    # simple update methods
     def updateEmployeeID(self, newID: str) -> None:
         self.employeeID = newID
 
@@ -44,6 +37,10 @@ class serviceWorker(ABC):
     def updateCompany(self, newCompany: str) -> None:
         self.company = newCompany
 
+    def updateMachine(self, newMachine: machine) -> None:
+        self.assignedMachine = newMachine
+
+    # simple return methods
     def returnEmployeeID(self) -> str:
         return self.employeeID
 
@@ -58,3 +55,6 @@ class serviceWorker(ABC):
 
     def returnCompany(self) -> str:
         return self.company
+    
+    def returnAssignedMachine(self) -> machine:
+        return self.assignedMachine

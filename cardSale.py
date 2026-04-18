@@ -6,10 +6,10 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from transaction import transaction
     from product import product
 
 # actual imports
+from transaction import transaction
 
 # class to implement card transaction recording. inherits transaction class
 class cardSale(transaction):

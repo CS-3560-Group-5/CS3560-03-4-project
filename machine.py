@@ -13,6 +13,8 @@ if TYPE_CHECKING:      # This if statement is needed at the top of each file to 
     from transaction import transaction
     from product import product
     from maintenanceRequest import maintenanceRequest
+    from cardSale import cardSale
+    from cashSale import cashSale
     from coin import coin
     from bill import bill
 
@@ -23,8 +25,10 @@ import datetime
 # also connects classes
 class machine:
     # basic contructor. takes in basic info about machine. also sets up all links to other classes
-    def __init__(self, addressIn: str, modelNumIn: str, maxSlotsIn: int, lastServicedIn: datetime, currStateIn: str, daysBetweenSerIn: int, techIn: List[technician], restockersIn: List[restocker], requestsIn: List[maintenanceRequest], transactionsIn: List[transaction], productsIn: List[product]) -> None:
+    def __init__(self, machIDIn: int, addressIn: str, modelNumIn: str, maxSlotsIn: int, lastServicedIn: datetime, currStateIn: str, daysBetweenSerIn: int) -> None:
         ## basic attributes
+        # stores database ID for machine
+        self.machID: int = machIDIn
         # stores the full address of the machine
         self.address: str = addressIn
         # stores the model number of the machine
@@ -37,18 +41,6 @@ class machine:
         self.dateLastServiced: datetime = lastServicedIn
         # stores the days between each machine service
         self.daysbetweenServices: int = daysBetweenSerIn
-
-        ## other class instances
-        # the list of technicians assigned to this machine
-        self.technicians: List[technician] = techIn
-        # the list of restockers assigned to this machine
-        self.restockers: List[restocker] = restockersIn
-        # the list of made maintenance requests for this machine
-        self.requests: List[maintenanceRequest] = requestsIn
-        # the list of made transactions at this machine
-        self.transactions: List[transaction] = transactionsIn
-        # the list of products in this machine
-        self.products: List[product] = productsIn
 
     ## Use case functions
     # function called when a machine malfunction is detected. this creates a new maintenanceRequest for one of the machines assigned technicians
@@ -114,93 +106,10 @@ class machine:
         return NotImplemented
     
     # "Admin updates machine information" case is handled with the simple update methods below
-
-    ## List methods for technicians
-    # append value
-    def appendTechnician(self, newTech: technician) -> None:
-        self.technicians.append(newTech)
-
-    # replace value at index
-    def replaceTechnician(self, newTech: technician, index: int) -> None:
-        self.technicians[index] = technician
-
-    # return specific value of index
-    def returnTechnician(self, index: int) -> technician:
-        return self.technicians[index]
-    
-    # return whole list
-    def returnTechnicians(self) -> List[technician]:
-        return self.technicians
-
-    ## List methods for restockers
-    # append value
-    def appendRestocker(self, newRestocker: restocker) -> None:
-        self.restockers.append(newRestocker)
-
-    # replace value at index
-    def replaceRestocker(self, newRestocker: restocker, index: int) -> None:
-        self.restockers[index] = newRestocker
-
-    # return specific value of index
-    def returnRestocker(self, index: int) -> restocker:
-        return self.restockers[index]
-
-    # return whole list
-    def returnRestockers(self) -> List[restocker]:
-        return self.restockers
-
-    ## List methods for requests
-    # append value 
-    def appendRequest(self, newRequest: maintenanceRequest) -> None:
-        self.requests.append(newRequest)
-
-    # replace value at index
-    def replaceRequest(self, newRequest: maintenanceRequest, index: int) -> None:
-        self.requests[index] = newRequest
-
-    # return value at index
-    def returnRequest(self, index: int) -> maintenanceRequest:
-        return self.requests[index]
-
-    # return entire list
-    def returnRequests(self) -> List[maintenanceRequest]:
-        return self.requests
-
-    ## List methods for transactions
-    # append value
-    def appendTransaction(self, newTransaction: transaction) -> None:
-        self.transactions.append(newTransaction)
-
-    # replace value at index
-    def replaceTransaction(self, newTransaction: transaction, index: int) -> None:
-        self.transactions[index] = newTransaction
-
-    # return specific value of index
-    def returnTransaction(self, index: int) -> transaction:
-        return self.transactions[index]
-
-    # return whole list
-    def returnTransactions(self, index: int) -> List[transaction]:
-        return self.transactions
-
-    ## List methods for products
-    # append value
-    def appendProduct(self, newProduct: product) -> None:
-        self.products.append(newProduct)
-
-    # replace value at index
-    def replaceProduct(self, newProduct: product, index: int) -> None:
-        self.products[index] = newProduct
-
-    # return specific value of index
-    def returnProduct(self, index: int) -> product:
-        return self.products[index]
-
-    # return whole list
-    def returnProducts(self) -> List[product]:
-        return self.products
-
     ## simple update methods
+    def updateID(self, newID:int) -> None:
+        self.machID = newID
+
     def updateAddress(self, newAddress: str) -> None:
         self.address = newAddress
     
@@ -220,6 +129,9 @@ class machine:
         self.daysbetweenServices = newDaysBetween
 
     ## simple return methods
+    def returnMachineID(self) -> int:
+        return self.machID
+
     def returnAddress(self) -> str:
         return self.address
     
