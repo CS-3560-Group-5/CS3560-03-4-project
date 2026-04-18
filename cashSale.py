@@ -16,7 +16,7 @@ from product import product
 
 # class to implement cash transaction recording. inherits transaction class
 class cashSale(transaction):
-
+    # *Doesnt make a new entry in assigned db table, only inits a class with this data. ID is assumed to correlate to a value inside the db table*
     def __init__(self, saleNumberIn: int, itemIn: product, machineIn: machine, taxIn: float, saleDateTimeIn: datetime, cashGivenIn: float) -> None:
         # used to keep track of the money the customer gave to the machine
         self.cashGiven: float = cashGivenIn

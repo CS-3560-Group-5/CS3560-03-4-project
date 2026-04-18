@@ -16,6 +16,7 @@ import datetime
 # class to handle a restockRequest. keeps track of if it was resolved or not.
 class restockRequest:
     # full init
+    # *Doesnt make a new entry in assigned db table, only inits a class with this data. ID is assumed to correlate to a value inside the db table*
     def __init__(self, selfIDin: int, restockerIn : serviceWorker, moneyHandlerIn: moneyHandler, dateRequestedIn : datetime, dateResolvedIn : datetime, reasonIn: str) -> None:
         # used to track each specific ID for a request. generated automatically by system
         # TODO : fix this ID

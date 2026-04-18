@@ -9,6 +9,7 @@ if TYPE_CHECKING:
 import datetime
 
 class serviceWorker():
+    # *Doesnt make a new entry in assigned db table, only inits a class with this data. ID is assumed to correlate to a value inside the db table*
     def __init__(self, idIn: str, assignedMachineIn: machine, nameIn: str, workerTypeIn: str, phoneIn: str, emailIn: str, companyIn: str) -> None:
         self.employeeID: str = idIn
         self.workerType: str = workerTypeIn

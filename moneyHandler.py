@@ -14,6 +14,7 @@ if TYPE_CHECKING:
 # this class handles all the the money in a vending machine
 class moneyHandler:
     # init function for all values
+    # *Doesnt make a new entry in assigned db table, only inits a class with this data. ID is assumed to correlate to a value inside the db table*
     def __init__(self, selfID: int, machineIn: machine, billMaxThreshIn: float, billMaxAmtIn: int, coinMaxThreshIn: float, coinMinThreshIn: float) -> None:
         # this handlers ID
         self.moneyHandlerID: int = selfID

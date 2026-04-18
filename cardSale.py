@@ -16,6 +16,7 @@ from transaction import transaction
 # class to implement card transaction recording. inherits transaction class
 class cardSale(transaction):
     # init function
+    # *Doesnt make a new entry in assigned db table, only inits a class with this data. ID is assumed to correlate to a value inside the db table*
     def __init__(self, saleNumberIn: int, itemIn: product, machineIn: machine, taxIn: float, saleDateTimeIn: datetime, feeIn: float, accountIn: str) -> None:
         # used to keep track of the fee charged to the customers card (if any)
         self.cardFee: float = feeIn

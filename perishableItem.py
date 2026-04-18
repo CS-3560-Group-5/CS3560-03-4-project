@@ -15,6 +15,7 @@ import datetime
 # tracks the date of expiration of an item in a shelf
 class perishableItem:
     # constructor
+    # *Doesnt make a new entry in assigned table, only inits a class with this data. ID is assumed to correlate to a value inside the db table*
     def __init__(self, selfID: int, slotIn: machineSlot, requestIn: restockRequest, expireIn: datetime, daysBeforeIn: int, slotPosIn: int) -> None:
         # self ID
         self.perishableItemID: int = selfID
@@ -39,6 +40,7 @@ class perishableItem:
     ## simple update method
     def updatePerishableItemID(self, newID: int) -> None:
         self.perishableItemID = newID
+
 
     def updateSlot(self, newSlot: machineSlot) -> None:
         self.slot = newSlot

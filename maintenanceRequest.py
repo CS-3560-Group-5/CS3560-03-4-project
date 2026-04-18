@@ -17,6 +17,7 @@ import datetime
 class maintenanceRequest:
 
     # full contructor
+    # *Doesnt make a new entry in assigned db table, only inits a class with this data. ID is assumed to correlate to a value inside the db table*
     def __init__(self, selfIDin: int, machineIn : machine, techIn : serviceWorker, dateRequestedIn : datetime, dateResolvedIn : datetime, reason: str) -> None:
         # used to track each request
         self.maintenanceRequestID: int = selfIDin

@@ -21,6 +21,7 @@ class transaction(ABC):
     # - a transaction object can only have one product at a time. this is because customers buy things from a vending machine one at a time.
 
     # default constructor
+    # *Doesnt make a new entry in assigned db table, only inits a class with this data. ID is assumed to correlate to a value inside the db table*
     def __init__(self, saleNumberIn: int, itemIn: product, machineIn: machine, taxIn: float, saleDateTimeIn: datetime) -> None:
         # used to track of what number sale this transaction is and to give each transaction a unique ID
         self.saleNumber: int = saleNumberIn
