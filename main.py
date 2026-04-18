@@ -1,18 +1,20 @@
 ## main method
 ## 4-18-2026
-# imports
+## imports
 import mysql.connector
-from typing import List
 from machine import machine
 from product import product
 from maintenanceRequest import maintenanceRequest
+from restockRequest import restockRequest
 from serviceWorker import serviceWorker
 from cardSale import cardSale
 from cashSale import cashSale
+from machineSlot import machineSlot
+from moneyHandler import moneyHandler
 #from coin import coin
 #from bill import bill
 
-# setting up db cursor
+## setting up db cursor
 machDB = mysql.connector.connect(
     host="localhost",
     user="interface",
@@ -27,6 +29,9 @@ serviceWorkerList = []
 maintenenceRequestList = []
 productList = []
 transactionList = []
+machineSlotList = []
+restockRequestList = []
+moneyHandlerList = []
 
 # setting up machines based on db info
 cursor.execute("SELECT * FROM machine")
@@ -39,7 +44,7 @@ for row in all:             # put every machine into memory with correct info
 cursor.execute("SELECT * FROM serviceworker")
 all = cursor.fetchall()
 for row in all:
-    serviceWorkerList.append(serviceWorker(row[0], machineList[row[1] - 1], row[2], row[3], row[4], row[5]))
+    serviceWorkerList.append(serviceWorker(row[0], machineList[row[1] - 1], row[2], row[3], row[4], row[5], row[6]))
 
 # setting up maintenanceRequests based on db info
 cursor.execute("SELECT * FROM maintenancerequest")
@@ -53,15 +58,36 @@ all = cursor.fetchall()
 for row in all:
     productList.append(product(row[0], machineList[row[1] - 1], row[2], row[3], row[4], row[5], row[6]))
 
-# setting up transaction based on db info
+# setting up transaction (cardsale and cashsale) based on db info
 cursor.execute("SELECT * FROM `transaction`")
 all = cursor.fetchall()
-#for row in all:
- #   transactionList.append(transaction(1,1,1,1,1,1))
+for row in all:
+    if row[7] != None:      # if cashGiven is none/null, then its a cardsale not a cash sale
+        transactionList.append(cashSale(row[0], productList[row[1] - 1], row[2], row[3], row[4], row[7]))
+    else:
+        transactionList.append(cardSale(row[0], productList[row[1] - 1], row[2], row[3], row[4], row[5], row[6]))
+
+# setting up moneyHandlers
+cursor.execute("SELECT * FROM moneyhandler")
+all = cursor.fetchall()
+for row in all:
+    moneyHandlerList.append(moneyHandler(row[0], machineList[row[1] - 1], row[2], row[3], row[4], row[5]))
 
 
+# setting up restockrequests
+cursor.execute("SELECT * FROM `restockrequest`")
+all = cursor.fetchall()
+for row in all:
+    if row[2] != None:      # if the request has no moneyhandler, we don't pass in a money handler from the list
+        restockRequestList.append(restockRequest(row[0], serviceWorkerList[row[1] - 1], moneyHandlerList[row[2] - 1], row[3], row[4], row[5]))
+    else:
+        restockRequestList.append(restockRequest(row[0], serviceWorkerList[row[1] - 1], None, row[3], row[4], row[5]))
 
-
+# setting up machineSlot
+cursor.execute("SELECT * FROM MachineSlot")
+all = cursor.fetchall()
+for row in all:
+    machineSlotList.append(machineSlot(row[0], row[1], row[2], row[6], row[4], row[3], row[5]))
 
 
 

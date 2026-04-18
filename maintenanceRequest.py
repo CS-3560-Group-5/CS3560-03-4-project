@@ -6,7 +6,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from technician import technician
+    from serviceWorker import serviceWorker
     from machine import machine
 
 # actual imports
@@ -17,7 +17,7 @@ import datetime
 class maintenanceRequest:
 
     # full contructor
-    def __init__(self, selfIDin: int, machineIn : machine, techIn : technician, dateRequestedIn : datetime, dateResolvedIn : datetime, reason: str) -> None:
+    def __init__(self, selfIDin: int, machineIn : machine, techIn : serviceWorker, dateRequestedIn : datetime, dateResolvedIn : datetime, reason: str) -> None:
         # used to track each request
         self.maintenanceRequestID: int = selfIDin
         # used to track the machine this machine is with. only the machines ID
@@ -29,7 +29,7 @@ class maintenanceRequest:
         # used to record the reason for a request
         self.reasonForRequest: str = reason
         # used to track what technician goes with this maintenanceRequest. only the techs ID
-        self.assignedTechnician: technician = techIn
+        self.assignedTechnician: serviceWorker = techIn
 
     ## simple update methods
     def updateMaintenanceRequestID(self, newID: str) -> None:
@@ -44,7 +44,7 @@ class maintenanceRequest:
     def updateReasonForRequest(self, newReason: str) -> None:
         self.reasonForRequest = newReason
 
-    def updateAssignedTechnician(self, newTech: technician) -> None:
+    def updateAssignedTechnician(self, newTech: serviceWorker) -> None:
         self.assignedTechnician = newTech
 
     def updateAssignedMachine(self, newMachine: machine) -> None:
@@ -63,7 +63,7 @@ class maintenanceRequest:
     def returnReasonForRequest(self) -> str:
         return self.reasonForRequest
 
-    def returnAssignedTechnician(self) -> technician:
+    def returnAssignedTechnician(self) -> serviceWorker:
         return self.assignedTechnician
     
     def returnAssignedMachine(self) -> machine:

@@ -7,6 +7,7 @@ from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     from product import product
+    from machine import machine
 
 # actual imports
 from abc import ABC, abstractmethod     # for abstract class implementation
@@ -20,13 +21,15 @@ class transaction(ABC):
     # - a transaction object can only have one product at a time. this is because customers buy things from a vending machine one at a time.
 
     # default constructor
-    def __init__(self, itemIn: product, taxIn: float) -> None:
+    def __init__(self, saleNumberIn: int, itemIn: product, machineIn: machine, taxIn: float, saleDateTimeIn: datetime) -> None:
         # used to track of what number sale this transaction is and to give each transaction a unique ID
-        self.saleNumber: int
+        self.saleNumber: int = saleNumberIn
         # used to track of how much the product was taxed
         self.tax: float = taxIn
+        # tracks assigned machine
+        self.assignedMachine: machine = machineIn
         # used to track of when the product was bought
-        self.saleDateTime: datetime = datetime.datetime.now()
+        self.saleDateTime: datetime = saleDateTimeIn
         # used to track of what product was bought
         self.item: product = itemIn
 
@@ -58,31 +61,3 @@ class transaction(ABC):
     def returnSaleDateTime(self) -> datetime:
         return self.saleDateTime
     
-
-# cashSale class
-# 3/15/2026
-
-# class to implement cash transaction recording. inherits transaction class
-class cashSale(transaction):
-
-    def __init__(self, itemIn: product, cashGivenIn: float, changeDisIn: float) -> None:
-        # used to keep track of the money the customer gave to the machine
-        self.cashGiven: float = cashGivenIn
-        # used to record how much change was given back to the customer
-        self.changeDispensed: float = changeDisIn
-        # call inherited init
-        super().__init__(itemIn)
-
-    ## simple update methods
-    def updateCashGiven(self, newGiven: float) -> None:
-        self.cashGiven = newGiven
-
-    def updateChangeDispensed(self, newChange: float) -> None:
-        self.changeDispensed = newChange
-
-    ## simple return methods
-    def returnCashGiven(self) -> float:
-        return self.cashGiven
-    
-    def returnChangeDispensed(self) -> float:
-        return self.changeDispensed

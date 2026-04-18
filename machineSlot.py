@@ -14,7 +14,7 @@ from restockRequest import restockRequest
 # tracks what product is in each vending machine slot, including count, thresholds, and expiration dates
 class machineSlot:
     # full constructor
-    def __init__(self, numpadIn: str, countIn: int, maxIn: int, restockAtThresholdIn: float, expDatesIn: List[expirationDate], posIn: int) -> None:
+    def __init__(self, numpadIn: str, countIn: int, maxIn: int, restockAtThresholdIn: float, posIn: int) -> None:
         # the code the customer enters to buy this product (e.g. "A1")
         self.numpadCode: str = numpadIn
         # current number of products in this slot
@@ -23,8 +23,6 @@ class machineSlot:
         self.maxAmount: int = maxIn
         # percentage threshold - if count/max falls at or below this, trigger a restock request
         self.restockAtThreshold: float = restockAtThresholdIn
-        # list of expiration dates for products in this slot (empty if product never expires)
-        self.expDates: List[expirationDate] = expDatesIn
         # the active restock request for this slot (set when threshold is hit)
         self.request: restockRequest = None
         # position of this slot in the machine, starts at 1
@@ -48,24 +46,6 @@ class machineSlot:
             if exp.checkExpiration():
                 self.request = restockRequest("Expired product", None, self)
                 break
-
-    ## expiration date list methods
-
-    # add a new expiration date to this slot
-    def appendExpDate(self, newExpDate: expirationDate) -> None:
-        self.expDates.append(newExpDate)
-
-    # replace the expiration date at a given index
-    def replaceExpDate(self, newExpDate: expirationDate, index: int) -> None:
-        self.expDates[index] = newExpDate
-
-    # return the expiration date at a given index
-    def returnExpDate(self, index: int) -> expirationDate:
-        return self.expDates[index]
-
-    # return the full expiration date list
-    def returnExpDates(self) -> List[expirationDate]:
-        return self.expDates
 
     ## simple update methods
 

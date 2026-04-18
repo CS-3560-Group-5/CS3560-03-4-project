@@ -7,6 +7,8 @@ from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     from product import product
+    from machine import machine
+    import datetime
 
 # actual imports
 from transaction import transaction
@@ -14,13 +16,13 @@ from transaction import transaction
 # class to implement card transaction recording. inherits transaction class
 class cardSale(transaction):
     # init function
-    def __init__(self, itemIn: product, feeIn: float, accountIn: str) -> None:
+    def __init__(self, saleNumberIn: int, itemIn: product, machineIn: machine, taxIn: float, saleDateTimeIn: datetime, feeIn: float, accountIn: str) -> None:
         # used to keep track of the fee charged to the customers card (if any)
         self.cardFee: float = feeIn
         # used to record what account was charged for the transaction
         self.accountCharged: str = accountIn
         # call inherited init
-        super().__init__(itemIn)
+        super().__init__(saleNumberIn, itemIn, machineIn, taxIn, saleDateTimeIn)
 
     ## simple update methods
     def updateCardFee(self, newFee: float) -> None:

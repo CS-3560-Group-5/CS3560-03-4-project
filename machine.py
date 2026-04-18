@@ -8,8 +8,7 @@ from typing import TYPE_CHECKING
 from typing import List
 
 if TYPE_CHECKING:      # This if statement is needed at the top of each file to avoid circular imports made by type hinting. Put all imported classes for type hinting within this if statement
-    from technician import technician
-    from restocker import restocker
+    from serviceWorker import serviceWorker
     from transaction import transaction
     from product import product
     from maintenanceRequest import maintenanceRequest
@@ -45,7 +44,7 @@ class machine:
     ## Use case functions
     # function called when a machine malfunction is detected. this creates a new maintenanceRequest for one of the machines assigned technicians
     # currently assigns to the technician with the least current requests
-    def malfunctionDetected(self, techAssigned: technician) -> None:
+    def malfunctionDetected(self, techAssigned: serviceWorker) -> None:
         #Initializing the values to find the technician with the least requests
         currentMin = len(self.technicians[i].returnRequest())
         minInd = 0
@@ -64,7 +63,7 @@ class machine:
     # function called to check scheduled service date. if service date has been reached, a new maintenanceRequest is made for a technician
     # this should be ran at the beginning of each day
     # checks and assigns technician similar to the above function
-    def checkServiceDate(self, techAssigned: technician) -> None:
+    def checkServiceDate(self, techAssigned: serviceWorker) -> None:
         
         currentDate = datetime.now()
         timeSinceLast = int(currentDate - self.dateLastServiced)

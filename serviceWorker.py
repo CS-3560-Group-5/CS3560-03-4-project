@@ -9,8 +9,9 @@ if TYPE_CHECKING:
 import datetime
 
 class serviceWorker():
-    def __init__(self, idIn: str, assignedMachineIn: machine, nameIn: str, phoneIn: str, emailIn: str, companyIn: str) -> None:
+    def __init__(self, idIn: str, assignedMachineIn: machine, nameIn: str, workerTypeIn: str, phoneIn: str, emailIn: str, companyIn: str) -> None:
         self.employeeID: str = idIn
+        self.workerType: str = workerTypeIn
         self.assignedMachine: machine = assignedMachineIn
         self.name: str = nameIn
         self.phoneNumber: str = phoneIn
@@ -44,6 +45,9 @@ class serviceWorker():
     def updateMachine(self, newMachine: machine) -> None:
         self.assignedMachine = newMachine
 
+    def updateWorkerType(self, newType) -> None:
+        self.workerType = newType
+
     # simple return methods
     def returnEmployeeID(self) -> str:
         return self.employeeID
@@ -62,3 +66,6 @@ class serviceWorker():
     
     def returnAssignedMachine(self) -> machine:
         return self.assignedMachine
+    
+    def returnWorkerType(self) -> str:
+        return self.workerType
