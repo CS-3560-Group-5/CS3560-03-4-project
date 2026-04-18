@@ -1,3 +1,4 @@
 # CS3560-03-4-project
 
-## framework of project is present. file machine.py is currently the main file
+## Files rely on the included mysql database to be running and accessable.
+## Look in the sql file for the exported database.
