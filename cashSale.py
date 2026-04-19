@@ -8,16 +8,25 @@ from typing import TYPE_CHECKING
 if TYPE_CHECKING:
     from transaction import transaction
     from machine import machine
-    import datetime
 
 # actual imports
 from transaction import transaction
 from product import product
+import mysql.connector
+
+## setting up db cursor
+machDB = mysql.connector.connect(
+    host="localhost",
+    user="interface",
+    password="password",
+    database = "vendingmachine"
+)
+cursor = machDB.cursor()
 
 # class to implement cash transaction recording. inherits transaction class
 class cashSale(transaction):
     # *Doesnt make a new entry in assigned db table, only inits a class with this data. ID is assumed to correlate to a value inside the db table*
-    def __init__(self, saleNumberIn: int, itemIn: product, machineIn: machine, taxIn: float, saleDateTimeIn: datetime, cashGivenIn: float) -> None:
+    def __init__(self, saleNumberIn: int, itemIn: product, machineIn: machine, taxIn: float, saleDateTimeIn: str, cashGivenIn: float) -> None:
         # used to keep track of the money the customer gave to the machine
         self.cashGiven: float = cashGivenIn
         # used to record how much change was given back to the customer
@@ -29,6 +38,14 @@ class cashSale(transaction):
     def updateCashGiven(self, newGiven: float) -> None:
         self.cashGiven = newGiven
         self.changeDispensed = round(newGiven - (self.item.price + self.tax), 2)
+        cursor.execute("UPDATE `Transaction` SET cashgiven = " + str(round(newGiven, 2)) + " WHERE saleNumber = " + str(self.returnSaleNumber()))
+        machDB.commit()
+
+    def updateTax(self, newTax: float) -> None:
+        self.tax = newTax
+        self.changeDispensed = round(self.cashGiven - (self.item.price + newTax), 2)
+        cursor.execute("UPDATE `Transaction` SET tax = " + str(round(newTax, 2)) + " WHERE saleNumber = " + str(self.returnSaleNumber()))
+        machDB.commit()
 
     ## simple return methods
     def returnCashGiven(self) -> float:

@@ -11,7 +11,16 @@ if TYPE_CHECKING:
 
 # actual imports
 from abc import ABC, abstractmethod     # for abstract class implementation
-import datetime
+import mysql.connector
+
+## setting up db cursor
+machDB = mysql.connector.connect(
+    host="localhost",
+    user="interface",
+    password="password",
+    database = "vendingmachine"
+)
+cursor = machDB.cursor()
 
 # this is an abstract class used in the implementation of the cardSale and cashSale classes
 class transaction(ABC):
@@ -22,7 +31,7 @@ class transaction(ABC):
 
     # default constructor
     # *Doesnt make a new entry in assigned db table, only inits a class with this data. ID is assumed to correlate to a value inside the db table*
-    def __init__(self, saleNumberIn: int, itemIn: product, machineIn: machine, taxIn: float, saleDateTimeIn: datetime) -> None:
+    def __init__(self, saleNumberIn: int, itemIn: product, machineIn: machine, taxIn: float, saleDateTimeIn: str) -> None:
         # used to track of what number sale this transaction is and to give each transaction a unique ID
         self.saleNumber: int = saleNumberIn
         # used to track of how much the product was taxed
@@ -30,24 +39,27 @@ class transaction(ABC):
         # tracks assigned machine
         self.assignedMachine: machine = machineIn
         # used to track of when the product was bought
-        self.saleDateTime: datetime = saleDateTimeIn
+        self.saleDateTime: str = saleDateTimeIn
         # used to track of what product was bought
         self.item: product = itemIn
 
     ## use case methods 
 
     ## simple update methods
-    def updateProduct(self, itemBought: product) -> None:
-        self.item = product
+    def updateProduct(self, newItem: product) -> None:
+        self.item = newItem
+        cursor.execute("UPDATE `Transaction` SET productID = " + str(newItem.returnProductID()) + " WHERE saleNumber = " + str(self.saleNumber))
+        machDB.commit()
 
-    def updateTax(self, newTax: float) -> None:
-        self.tax = newTax
+    def updateMachine(self, newMachine: machine) -> None:
+        self.assignedMachine = newMachine
+        cursor.execute("UPDATE `Transaction` SET machineID = " + str(newMachine.returnMachineID()) + " WHERE saleNumber = " + str(self.saleNumber))
+        machDB.commit()
 
-    def updateSaleNumber(self, newSaleNum: int) -> None:
-        self.saleNumber = newSaleNum
-
-    def updateSaleDateTime(self, newSaleDate: datetime) -> None:
+    def updateSaleDateTime(self, newSaleDate: str) -> None:     # expects date to be passed as numbers in the string form "month,day,year,hour,minute,second" like "1,1,2000,5,10,1"
         self.saleDateTime = newSaleDate
+        cursor.execute("UPDATE `Transaction` SET saledatetime = STR_TO_DATE(\"" + newSaleDate + "\",\"%m,%d,%Y,%h,%i,%s\") WHERE saleNumber = " + str(self.saleNumber))
+        machDB.commit()
         
     ## simple return methods
     def returnProduct(self) -> product:
@@ -59,6 +71,9 @@ class transaction(ABC):
     def returnSaleNumber(self) -> int:
         return self.saleNumber
 
-    def returnSaleDateTime(self) -> datetime:
+    def returnSaleDateTime(self) -> str:
         return self.saleDateTime
+    
+    def returnAssignedMachine(self) -> machine:
+        return self.assignedMachine
     

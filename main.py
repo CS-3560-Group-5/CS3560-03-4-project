@@ -67,10 +67,10 @@ for row in all:
 cursor.execute("SELECT * FROM `transaction`")
 all = cursor.fetchall()
 for row in all:
-    if row[7] != None:      # if cashGiven is none/null, then its a cardsale not a cash sale
-        cardSaleList.append(cashSale(row[0], productList[row[1] - 1], row[2], row[3], row[4], row[7]))
+    if row[5] != None:      # if cashGiven is none/null, then its a cardsale not a cash sale
+        cardSaleList.append(cardSale(row[0], productList[row[1] - 1], row[2], row[3], row[4], row[5], row[6]))
     else:
-        cashSaleList.append(cardSale(row[0], productList[row[1] - 1], row[2], row[3], row[4], row[5], row[6]))
+        cashSaleList.append(cashSale(row[0], productList[row[1] - 1], row[2], row[3], row[4], row[7]))
 
 # setting up moneyHandlers
 cursor.execute("SELECT * FROM moneyhandler")
@@ -120,10 +120,10 @@ cursor.execute("SELECT * FROM currency")
 all = cursor.fetchall()
 for row in all:
     if row[3] != None:
-        billList.append(bill(row[0], row[1], row[2], row[4]))
-    else:
         coinList.append(coin(row[0], row[1], row[2], row[3], row[4]))
+    else:
+        billList.append(bill(row[0], row[1], row[2], row[4]))
 
 
 # test
-
+cardSaleList[0].updateTax(12222)
