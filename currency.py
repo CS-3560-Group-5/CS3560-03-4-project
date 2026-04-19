@@ -28,8 +28,6 @@ class currency(ABC):
         self.worth: float = worthIn
         self.currentAmount: int = currAmtIn
 
-    # syncs
-
     # update and return functions. affects needed table values when done
     def updateWorth(self, newWorth: float) -> None:
         self.worth = newWorth

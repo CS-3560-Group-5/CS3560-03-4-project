@@ -90,8 +90,8 @@ CREATE TABLE IF NOT EXISTS `Transaction` (
 -- MaintenanceRequest Table
 CREATE TABLE IF NOT EXISTS `MaintenanceRequest` (
 	-- private/foreign keys
-	`MaintencanceRequestID` INTEGER UNSIGNED NOT NULL AUTO_INCREMENT, -- pk
-    PRIMARY KEY(`MaintencanceRequestID`),
+	`MaintenanceRequestID` INTEGER UNSIGNED NOT NULL AUTO_INCREMENT, -- pk
+    PRIMARY KEY(`MaintenanceRequestID`),
     `MachineID` INTEGER UNSIGNED NOT NULL, -- fk1
 	`ServiceWorkerID` INTEGER UNSIGNED NOT NULL, -- fk2
 	FOREIGN KEY(`MachineID`) REFERENCES `Machine`(`MachineID`),

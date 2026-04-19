@@ -27,7 +27,7 @@ cursor = machDB.cursor()
 class restockRequest:
     # full init
     # *Doesnt make a new entry in assigned db table, only inits a class with this data. ID is assumed to correlate to a value inside the db table*
-    def __init__(self, selfIDin: int, restockerIn : serviceWorker, moneyHandlerIn: moneyHandler, dateRequestedIn : datetime, dateResolvedIn : datetime, reasonIn: str) -> None:
+    def __init__(self, selfIDin: int, restockerIn : serviceWorker, moneyHandlerIn: moneyHandler, dateRequestedIn : str, dateResolvedIn : str, reasonIn: str) -> None:
         # used to track each specific ID for a request. generated automatically by system
         # TODO : fix this ID
         self.restockRequestID: int = selfIDin
@@ -83,6 +83,9 @@ class restockRequest:
     ## simple return methods
     def returnRestockRequestID(self) -> str:
         return self.restockRequestID
+    
+    def returnAssignedMoneyHandler(self) -> moneyHandler:
+        return self.assignedMoneyHandler
 
     def returnDateRequested(self) -> str:
         return self.dateRequested

@@ -1,10 +1,10 @@
+CREATE DATABASE  IF NOT EXISTS `vendingmachine` /*!40100 DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci */ /*!80016 DEFAULT ENCRYPTION='N' */;
+USE `vendingmachine`;
 -- MySQL dump 10.13  Distrib 8.0.45, for Win64 (x86_64)
 --
 -- Host: 127.0.0.1    Database: vendingmachine
 -- ------------------------------------------------------
 -- Server version	8.0.45
-
-CREATE DATABASE IF NOT EXISTS `VendingMachine`;
 
 /*!40101 SET @OLD_CHARACTER_SET_CLIENT=@@CHARACTER_SET_CLIENT */;
 /*!40101 SET @OLD_CHARACTER_SET_RESULTS=@@CHARACTER_SET_RESULTS */;
@@ -115,13 +115,13 @@ DROP TABLE IF EXISTS `maintenancerequest`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
 /*!50503 SET character_set_client = utf8mb4 */;
 CREATE TABLE `maintenancerequest` (
-  `MaintencanceRequestID` int unsigned NOT NULL AUTO_INCREMENT,
+  `MaintenanceRequestID` int unsigned NOT NULL AUTO_INCREMENT,
   `MachineID` int unsigned NOT NULL,
   `ServiceWorkerID` int unsigned NOT NULL,
   `DateRequested` date DEFAULT NULL,
   `DateResolved` date DEFAULT NULL,
   `ReasonForRequest` mediumtext,
-  PRIMARY KEY (`MaintencanceRequestID`),
+  PRIMARY KEY (`MaintenanceRequestID`),
   KEY `MachineID` (`MachineID`),
   KEY `ServiceWorkerID` (`ServiceWorkerID`),
   CONSTRAINT `maintenancerequest_ibfk_1` FOREIGN KEY (`MachineID`) REFERENCES `machine` (`MachineID`),
@@ -346,4 +346,4 @@ UNLOCK TABLES;
 /*!40101 SET COLLATION_CONNECTION=@OLD_COLLATION_CONNECTION */;
 /*!40111 SET SQL_NOTES=@OLD_SQL_NOTES */;
 
--- Dump completed on 2026-04-18 12:22:13
+-- Dump completed on 2026-04-19 16:07:24
