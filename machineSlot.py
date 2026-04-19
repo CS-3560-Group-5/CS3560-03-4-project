@@ -9,8 +9,19 @@ if TYPE_CHECKING:
     from product import product
     from restockRequest import restockRequest
 
-# actual import - needed at runtime for creating restock requests
+
+# actual imports
+import mysql.connector
 from restockRequest import restockRequest
+
+## setting up db cursor
+machDB = mysql.connector.connect(
+    host="localhost",
+    user="interface",
+    password="password",
+    database = "vendingmachine"
+)
+cursor = machDB.cursor()
 
 # tracks what product is in each vending machine slot, including count, thresholds, and expiration dates
 class machineSlot:
@@ -51,21 +62,28 @@ class machineSlot:
     ## simple update methods
     def updateProduct(self, newProduct: product) -> None:
         self.productHeld = newProduct
-
-    def updateNumpadCode(self, newCode: str) -> None:
-        self.numpadCode = newCode
+        cursor.execute("UPDATE `machineSlot` SET productID = \"" + str(newProduct.returnProductID()) + "\" WHERE slotcode = \"" + str(self.numpadCode + "\""))
+        machDB.commit()
 
     def updateProductCount(self, newProductCount: int) -> None:
         self.productCount = newProductCount
+        cursor.execute("UPDATE `machineSlot` SET productcount = \"" + str(newProductCount) + "\" WHERE slotcode = \"" + str(self.numpadCode + "\""))
+        machDB.commit()
 
     def updateMaxAmount(self, newMax: int) -> None:
         self.maxAmount = newMax
+        cursor.execute("UPDATE `machineSlot` SET maxamount = \"" + str(newMax) + "\" WHERE slotcode = \"" + str(self.numpadCode + "\""))
+        machDB.commit()
 
     def updateRestockAtThreshold(self, newThresh: float) -> None:
         self.restockAtThreshold = newThresh
+        cursor.execute("UPDATE `machineSlot` SET restockatthreshold = \"" + str(round(newThresh, 2)) + "\" WHERE slotcode = \"" + str(self.numpadCode + "\""))
+        machDB.commit()
 
     def updateRequest(self, newRequest: restockRequest) -> None:
         self.request = newRequest
+        cursor.execute("UPDATE `machineSlot` SET restockRequestID = \"" + str(newRequest.returnRestockRequestID()) + "\" WHERE slotcode = \"" + str(self.numpadCode + "\""))
+        machDB.commit()
 
 
     ## simple return methods

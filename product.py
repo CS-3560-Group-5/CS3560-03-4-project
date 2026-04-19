@@ -4,13 +4,21 @@
 # type hint imports
 from __future__ import annotations
 from typing import TYPE_CHECKING
-from typing import List
 
 if TYPE_CHECKING:
-    from machineSlot import machineSlot
     from machine import machine
 
 # actual imports
+import mysql.connector
+
+## setting up db cursor
+machDB = mysql.connector.connect(
+    host="localhost",
+    user="interface",
+    password="password",
+    database = "vendingmachine"
+)
+cursor = machDB.cursor()
 
 # this is a class used to track a product information in the vending machine
 class product:
@@ -34,26 +42,35 @@ class product:
         self.assignedMachine: machine = assignedMachineIn
 
     ## simple update methods
-    def updateProductID(self, newID : str) -> None:
-        self.productID = newID
-
     def updateName(self, newName: str ) -> None:
         self.name = newName
+        cursor.execute("UPDATE `product` SET name = \"" + str(newName) + "\" WHERE productID = " + str(self.productID))
+        machDB.commit()
 
     def updatePrice(self, newPrice: float) -> None:
         self.price = newPrice
+        cursor.execute("UPDATE `product` SET price = \"" + str(newPrice) + "\" WHERE productID = " + str(self.productID))
+        machDB.commit()
         
     def updateDescription(self, newDescription: str) -> None:
         self.description = newDescription
+        cursor.execute("UPDATE `product` SET description = \"" + str(newDescription) + "\" WHERE productID = " + str(self.productID))
+        machDB.commit()
         
     def updateNutritionFacts(self, newNutritionFacts: str) -> None:
         self.nutritionFacts = newNutritionFacts
+        cursor.execute("UPDATE `product` SET nutritionfacts = \"" + str(newNutritionFacts) + "\" WHERE productID = " + str(self.productID))
+        machDB.commit()
 
     def updateIngredients(self, newIngredients: str) -> None:
         self.ingredient = newIngredients
+        cursor.execute("UPDATE `product` SET ingredients = \"" + str(newIngredients) + "\" WHERE productID = " + str(self.productID))
+        machDB.commit()
 
     def updateAssignedMachine(self, newMachine: machine) -> None:
         self.assignedMachine = newMachine
+        cursor.execute("UPDATE `product` SET machineid = \"" + str(newMachine.returnMachineID()) + "\" WHERE productID = " + str(self.productID))
+        machDB.commit()
         
     ## simple return methods
     def returnProductID(self) -> str:

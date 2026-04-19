@@ -27,7 +27,7 @@ cursor = machDB.cursor()
 ## setting up all classes
 machineList = []
 serviceWorkerList = []
-maintenenceRequestList = []
+maintenanceRequestList = []
 productList = []
 cardSaleList = []
 cashSaleList = []
@@ -55,7 +55,7 @@ for row in all:
 cursor.execute("SELECT * FROM maintenancerequest")
 all = cursor.fetchall()
 for row in all:
-    maintenenceRequestList.append(maintenanceRequest(row[0], machineList[row[1] - 1], serviceWorkerList[row[2] - 1], row[3], row[4], row[5]))
+    maintenanceRequestList.append(maintenanceRequest(row[0], machineList[row[1] - 1], serviceWorkerList[row[2] - 1], row[3], row[4], row[5]))
 
 # setting up product based on db info
 cursor.execute("SELECT * FROM product")
@@ -126,4 +126,4 @@ for row in all:
 
 
 # test
-cardSaleList[0].updateTax(12222)
+machineList[0].updateDaysBetweenServices(1234565555)

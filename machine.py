@@ -18,7 +18,17 @@ if TYPE_CHECKING:      # This if statement is needed at the top of each file to 
     from bill import bill
 
 # actual imports
+import mysql.connector
 import datetime
+
+## setting up db cursor
+machDB = mysql.connector.connect(
+    host="localhost",
+    user="interface",
+    password="password",
+    database = "vendingmachine"
+)
+cursor = machDB.cursor()
 
 # handles the tracking of when maintenance requests are sent, via the service date aproaching or the machine having a malfunction
 # also connects classes
@@ -107,26 +117,36 @@ class machine:
     
     # "Admin updates machine information" case is handled with the simple update methods below
     ## simple update methods
-    def updateID(self, newID:int) -> None:
-        self.machID = newID
-
     def updateAddress(self, newAddress: str) -> None:
         self.address = newAddress
+        cursor.execute("UPDATE `machine` SET address = \"" + str(newAddress) + "\" WHERE machineID = \"" + str(self.machID) + "\"")
+        machDB.commit()
     
     def updateModelNumber(self, newModelNum: str) -> None:
         self.modelNumber = newModelNum
+        cursor.execute("UPDATE `machine` SET modelNumber = \"" + str(newModelNum) + "\" WHERE machineID = \"" + str(self.machID) + "\"")
+        machDB.commit()
 
     def updateMaxProductSlots(self, newMaxSlots: int) -> None:
         self.maxProductSlots = newMaxSlots
+        cursor.execute("UPDATE `machine` SET maxproductslots = \"" + str(newMaxSlots) + "\" WHERE machineID = \"" + str(self.machID) + "\"")
+        machDB.commit()
 
     def updateCurrentState(self, newState: str) -> None:
         self.currentState = newState
+        cursor.execute("UPDATE `machine` SET currentstate = \"" + str(newState) + "\" WHERE machineID = \"" + str(self.machID) + "\"")
+        machDB.commit()
     
-    def updateDateLastServiced(self, newLastServiced: datetime) -> None:
+    def updateDateLastServiced(self, newLastServiced: str) -> None:
         self.dateLastServiced = newLastServiced
+        cursor.execute("UPDATE `machine` SET datelastserviced = STR_TO_DATE(\"" + newLastServiced + "\",\"%m,%d,%Y\") WHERE machineID = " + str(self.machID))
+        machDB.commit()
+        
 
     def updateDaysBetweenServices(self, newDaysBetween: int) -> None:
         self.daysbetweenServices = newDaysBetween
+        cursor.execute("UPDATE `machine` SET daysbetweenservices = \"" + str(newDaysBetween) + "\" WHERE machineID = \"" + str(self.machID) + "\"")
+        machDB.commit()
 
     ## simple return methods
     def returnMachineID(self) -> int:
@@ -145,7 +165,7 @@ class machine:
     def returnCurrentState(self) -> str:
         return self.currentState
     
-    def returnDateLastServiced(self) -> datetime:
+    def returnDateLastServiced(self) -> str:
         return self.dateLastServiced
     
     def returnDaysBetweenServices(self) -> int:

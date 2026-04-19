@@ -4,12 +4,22 @@
 # type hint imports
 from __future__ import annotations
 from typing import TYPE_CHECKING
-from typing import List
 
 if TYPE_CHECKING:
     from machine import machine
 
-# actual imports
+# actual import
+import mysql.connector
+
+
+## setting up db cursor
+machDB = mysql.connector.connect(
+    host="localhost",
+    user="interface",
+    password="password",
+    database = "vendingmachine"
+)
+cursor = machDB.cursor()
 
 # this class handles all the the money in a vending machine
 class moneyHandler:
@@ -50,23 +60,31 @@ class moneyHandler:
         return NotImplemented
 
     ## simple update methods [doesnt check for bounds!!]
-    def updateMoneyHandlerID(self, newID) -> None:
-        self.moneyHandlerID = newID
 
     def updateAssignedMachine(self, newMachine: machine) -> None:
         self.assignedMachine = newMachine
+        cursor.execute("UPDATE `moneyhandler` SET machineID = " + str(newMachine.returnMachineID()) + " WHERE moneyHandlerID = " + str(self.moneyHandlerID))
+        machDB.commit()
 
     def updateBillRestockMaxThreshold(self, newMaxThresh: float) -> None:
         self.billRestockMaxThreshold = newMaxThresh
+        cursor.execute("UPDATE `moneyhandler` SET billrestockMaxthreshold = " + str(newMaxThresh) + " WHERE moneyHandlerID = " + str(self.moneyHandlerID))
+        machDB.commit()
 
     def updateBillMaxAmount(self, newBillMax: int) -> None:
         self.billMaxAmount = newBillMax
+        cursor.execute("UPDATE `moneyhandler` SET billmaxamount = " + str(newBillMax) + " WHERE moneyHandlerID = " + str(self.moneyHandlerID))
+        machDB.commit()
 
     def updateCoinRestockMinThreshold(self, newMinThresh: float) -> None:
         self.coinRestockMinThreshold = newMinThresh
+        cursor.execute("UPDATE `moneyhandler` SET coinrestockminthreshold = " + str(newMinThresh) + " WHERE moneyHandlerID = " + str(self.moneyHandlerID))
+        machDB.commit()
 
     def updateCoinRestockMaxThreshold(self, newMaxThresh: float) -> None:
         self.coinRestockMaxThreshold = newMaxThresh
+        cursor.execute("UPDATE `moneyhandler` SET coinrestockmaxthreshold = " + str(newMaxThresh) + " WHERE moneyHandlerID = " + str(self.moneyHandlerID))
+        machDB.commit()
 
     ## simple return methods
     def returnBillRestockMaxThreshold(self) -> float:
