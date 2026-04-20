@@ -44,6 +44,7 @@ class machineSlot:
 
     # checks if the product count has fallen at or below the restock threshold percentage
     # should be called every time a transaction is made
+    # TODO : Update to work with new code
     def checkProductThreshold(self) -> None:
         # calculate current fill percentage and compare to threshold
         if self.productCount / self.maxAmount <= self.restockAtThreshold:
@@ -52,6 +53,7 @@ class machineSlot:
 
     # checks all expiration dates in this slot and creates a restock request if any are expired
     # should be called at the start of each day
+    # TODO : Update to work with new code
     def checkAllExpirationDates(self) -> None:
         for exp in self.expDates:
             # if any expiration date has passed, make a restock request and stop
@@ -87,7 +89,6 @@ class machineSlot:
 
 
     ## simple return methods
-
     def returnNumpadCode(self) -> str:
         return self.numpadCode
 

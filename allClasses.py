@@ -1,4 +1,4 @@
-## main method
+## all classes : init and manage all class instances
 ## 4-18-2026
 ## imports
 import mysql.connector
@@ -128,7 +128,9 @@ class allClasses:
             else:
                 self.billList.append(bill(row[0], row[1], row[2], row[4]))
 
-    # add functions. use these to add new objects
+    ### Use case functions. Needed for logic of vending machine / use cases
+
+    ### add functions. use these to add new objects to lists and database
     def addBill(self, moneyHandlerIn: moneyHandler, currAmtIn: int, worthIn: float) -> None:
         cursor.execute("INSERT INTO currency (moneyHandlerID, currentamount, maxamount, currencyworth) values (" + str(moneyHandlerIn.returnMoneyHandlerID()) + "," + str(currAmtIn) + ",NULL," + str(worthIn) + ")")    # add to db
         machDB.commit()
@@ -188,35 +190,87 @@ class allClasses:
         id = cursor.fetchall()[-1]                                   # Id is newest in returned list of IDs
         self.restockRequestList.append(restockRequest(id, restockerIn, moneyHandlerIn, dateRequestedIn, dateResolvedIn, reasonIn))
     
+    # if no dateresolved, pass in None for them
     def addMaintenanceRequest(self, machineIn: machine, techIn: serviceWorker, dateRequestedIn : str, dateResolvedIn : str, reasonIn: str) -> None:
         # running sql based in nones
         if dateResolvedIn != None:
-            cursor.execute("INSERT INTO maintenancerequest (machineID, serviceWorkerID, daterequested, dateresolved, reasonforrequest) values (" + str(machineIn.returnMachineID()) + "," + str(billMaxThreshIn) + "," + str(billMaxIn) +"," + str(coinMaxThreshIn) + "," + str(coinMinThreshIn) + ")")    # add to db
+            cursor.execute("INSERT INTO maintenancerequest (machineID, serviceWorkerID, daterequested, dateresolved, reasonforrequest) values (" + str(machineIn.returnMachineID()) + "," + str(techIn.returnEmployeeID()) + "," + "STR_TO_DATE(\"" + dateRequestedIn + "\",\"%m,%d,%Y\")" +"," + "STR_TO_DATE(\"" + dateResolvedIn + "\",\"%m,%d,%Y\")" + ",\"" + str(reasonIn) + "\")")    # add to db
         else:
-
+            cursor.execute("INSERT INTO maintenancerequest (machineID, serviceWorkerID, daterequested, dateresolved, reasonforrequest) values (" + str(machineIn.returnMachineID()) + "," + str(techIn.returnEmployeeID()) + "," + "STR_TO_DATE(\"" + dateRequestedIn + "\",\"%m,%d,%Y\")" +",NULL,\"" + str(reasonIn) + "\")")
         machDB.commit()
         cursor.execute("SELECT maintenancerequestID FROM maintenancerequest")    # grab auto-gen ID from db
         id = cursor.fetchall()[-1]                                               # Id is newest in returned list of IDs
-        self.moneyHandlerList.append(moneyHandler(id, machineIn, techIn, dateRequestedIn, dateResolvedIn, reasonIn)
+        self.maintenanceRequestList.append(maintenanceRequest(id, machineIn, techIn, dateRequestedIn, dateResolvedIn, reasonIn))
 
+    # if no productID, restockRequest, productcount, maxamount, or thresh, pass in None
+    def addMachineSlot(self, slotCodeIn: str, productIn: product, requestIn: restockRequest, productCountIn: int, maxAmountIn: int, restockAtThresholdIn: float) -> None:
+        # returns early if the slotcode already exists
+        for slot in self.machineSlotList:
+            if slotCodeIn == slot.returnNumpadCode():
+                return
+        if productIn != None and requestIn != None:
+            cursor.execute("INSERT INTO machineslot values (\"" + str(slotCodeIn) + "\"," + str(productIn.returnProductID()) + "," + str(requestIn.returnRestockRequestID()) + "," + str(productCountIn) + "," + str(maxAmountIn) + "," + str(restockAtThresholdIn) + ")")    # add to db
+        elif productIn != None and requestIn == None:
+            cursor.execute("INSERT INTO machineslot values (\"" + str(slotCodeIn) + "\"," + str(productIn.returnProductID()) + ",NULL," + str(productCountIn) + "," + str(maxAmountIn) + "," + str(restockAtThresholdIn) + ")")
+        else:
+            cursor.execute("INSERT INTO machineslot values (\"" + str(slotCodeIn) + "\",NULL,NULL,NULL,NULL,NULL)")  
+        machDB.commit()
+        self.machineSlotList.append(machineSlot(slotCodeIn, productIn, requestIn, productCountIn, maxAmountIn, restockAtThresholdIn))
 
-    def addMachineSlot(self) -> None:
-        pass
 
     def addCashSale(self) -> None:
-        pass
+        pass # TODO
 
     def addCardSale(self) -> None:
-        pass
+        pass # TODO
 
     def addProduct(self) -> None:
-        pass
+        pass # TODO
 
     def addServiceWorker(self) -> None:
-        pass
+        pass # TODO
 
     def addMachine(self) -> None:
-        pass
+        pass # TODO
+
+    ### delete functions. used to delete entries from database table and lists
+    ### pass in the ID of the row to delete it
+    def deleteBill(self) -> None:
+        pass # TODO
+
+    def deleteCoin(self) -> None:
+        pass # TODO
+
+    def deletePerishableItem(self) -> None:
+        pass # TODO
+
+    def deleteMoneyHandler(self) -> None:
+        pass # TODO
+
+    def deleteRestockRequest(self) -> None:
+        pass # TODO
+
+    def deleteMachineSlot(self) -> None:
+        pass # TODO
+
+    def deleteCashSale(self) -> None:
+        pass # TODO
+
+    def deleteCardSale(self) -> None:
+        pass # TODO
+
+    def deleteProduct(self) -> None:
+        pass # TODO
+
+    def deleteMaintenanceRequest(self) -> None:
+        pass # TODO
+
+    def deleteServiceWorker(self) -> None:
+        pass # TODO
+
+    def deleteMachine(self) -> None:
+        pass # TODO
+
 
     # list returns
     def returnBillList(self):

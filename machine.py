@@ -53,6 +53,7 @@ class machine:
         self.daysbetweenServices: int = daysBetweenSerIn
 
     ## Use case functions
+    # TODO : Update to work with new code
     # function called when a machine malfunction is detected. this creates a new maintenanceRequest for one of the machines assigned technicians
     # currently assigns to the technician with the least current requests
     def malfunctionDetected(self, techAssigned: serviceWorker) -> None:
@@ -72,6 +73,7 @@ class machine:
         self.requests.append(newReq)
     
     # function called to check scheduled service date. if service date has been reached, a new maintenanceRequest is made for a technician
+    # TODO : Update to work with new code
     # this should be ran at the beginning of each day
     # checks and assigns technician similar to the above function
     def checkServiceDate(self, techAssigned: serviceWorker) -> None:
@@ -97,9 +99,11 @@ class machine:
             self.requests.append(newReq)
     
     # functions called to record a transaction, depending on the type
+    # TODO : Update to work with new code
     def recordTransaction(self, productPurchased: product, sale: cardSale) -> None:
         self.transactions.append(sale)
 
+    # TODO : Update to work with new code
     def recordTransaction(self, productPurchased: product, sale: cashSale) -> None:
         self.transactions.append(sale)
         

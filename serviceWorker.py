@@ -33,6 +33,7 @@ class serviceWorker():
 
     # functions
     # finds the matching request by ID and stamps it with the resolved date
+    # TODO : Update to work with new code
     def resolveRequest(self, toResolve: maintenanceRequest, dateResolved: datetime) -> None:
         for i in range(len(self.requests)):
             if self.requests[i].returnMaintenanceRequestID() == toResolve.returnMaintenanceRequestID():

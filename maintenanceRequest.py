@@ -42,17 +42,20 @@ class maintenanceRequest:
         self.assignedTechnician: serviceWorker = techIn
 
     ## functions
+    # TODO : Update to work with new code
     def updateDateResolved(self, newDateResolved: str) -> None:# expects date to be passed as numbers in the string form "month,day,year" like "1,1,2000"
         self.dateResolved = newDateResolved
         cursor.execute("UPDATE `maintenancerequest` SET dateResolved = STR_TO_DATE(\"" + newDateResolved + "\",\"%m,%d,%Y\") WHERE MaintencanceRequestID = " + str(self.maintenanceRequestID))
         machDB.commit()
     
     # changes dateResolved to the current date
+    # TODO : Update to work with new code
     def markAsResolved(self) -> None:
         date = datetime.datetime.now()
         self.updateDateResolved(date.strftime("%m") + "," + date.strftime("%d") + "," + date.strftime("%Y"))
 
     # changes dateResolved to None/Null
+    # TODO : Update to work with new code
     def markAsUnresolved(self) -> None:
         cursor.execute("UPDATE `maintenancerequest` SET dateresolved = NULL WHERE MaintencanceRequestID = " + str(self.maintenanceRequestID))
         machDB.commit()
