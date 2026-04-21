@@ -35,7 +35,7 @@ cursor = machDB.cursor()
 class machine:
     # basic contructor. takes in basic info about machine. also sets up all links to other classes
     # *Doesnt make a new entry in assigned db table, only inits a class with this data. ID is assumed to correlate to a value inside the db table*
-    def __init__(self, machIDIn: int, addressIn: str, modelNumIn: str, maxSlotsIn: int, lastServicedIn: datetime, currStateIn: str, daysBetweenSerIn: int) -> None:
+    def __init__(self, machIDIn: int, addressIn: str, modelNumIn: str, maxSlotsIn: int, lastServicedIn: str, currStateIn: str, daysBetweenSerIn: int) -> None:
         ## basic attributes
         # stores database ID for machine
         self.machID: int = machIDIn
@@ -48,7 +48,7 @@ class machine:
         # stores the current operational state of the machine
         self.currentState: str = currStateIn
         # stores the date that the machine was last serviced
-        self.dateLastServiced: datetime = lastServicedIn
+        self.dateLastServiced: str = lastServicedIn
         # stores the days between each machine service
         self.daysbetweenServices: int = daysBetweenSerIn
 
@@ -165,7 +165,6 @@ class machine:
     def returnMaxProductSlots(self) -> int:
         return self.maxProductSlots
     
-
     def returnCurrentState(self) -> str:
         return self.currentState
     

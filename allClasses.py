@@ -113,7 +113,6 @@ class allClasses:
                 if row[1] == slot.returnNumpadCode():
                     break
                 index += 1
-
             if row[2] != None:
                 self.perishableItemList.append(perishableItem(row[0], self.machineSlotList[index], self.restockRequestList[row[2] - 1], row[3], row[4], row[5]))
             else:
@@ -131,6 +130,7 @@ class allClasses:
     ### Use case functions. Needed for logic of vending machine / use cases
 
     ### add functions. use these to add new objects to lists and database
+    ### none of these take user defined IDS except for addMachineSlot
     def addBill(self, moneyHandlerIn: moneyHandler, currAmtIn: int, worthIn: float) -> None:
         cursor.execute("INSERT INTO currency (moneyHandlerID, currentamount, maxamount, currencyworth) values (" + str(moneyHandlerIn.returnMoneyHandlerID()) + "," + str(currAmtIn) + ",NULL," + str(worthIn) + ")")    # add to db
         machDB.commit()
@@ -194,9 +194,9 @@ class allClasses:
     def addMaintenanceRequest(self, machineIn: machine, techIn: serviceWorker, dateRequestedIn : str, dateResolvedIn : str, reasonIn: str) -> None:
         # running sql based in nones
         if dateResolvedIn != None:
-            cursor.execute("INSERT INTO maintenancerequest (machineID, serviceWorkerID, daterequested, dateresolved, reasonforrequest) values (" + str(machineIn.returnMachineID()) + "," + str(techIn.returnEmployeeID()) + "," + "STR_TO_DATE(\"" + dateRequestedIn + "\",\"%m,%d,%Y\")" +"," + "STR_TO_DATE(\"" + dateResolvedIn + "\",\"%m,%d,%Y\")" + ",\"" + str(reasonIn) + "\")")    # add to db
+            cursor.execute("INSERT INTO maintenancerequest (machineID, serviceWorkerID, daterequested, dateresolved, reasonforrequest) values (" + str(machineIn.returnMachineID()) + "," + str(techIn.returnEmployeeID()) + "," + "STR_TO_DATE(\"" + dateRequestedIn + "\",\"%m,%d,%Y\")" + "," + "STR_TO_DATE(\"" + dateResolvedIn + "\",\"%m,%d,%Y\")" + ",\"" + str(reasonIn) + "\")")    # add to db
         else:
-            cursor.execute("INSERT INTO maintenancerequest (machineID, serviceWorkerID, daterequested, dateresolved, reasonforrequest) values (" + str(machineIn.returnMachineID()) + "," + str(techIn.returnEmployeeID()) + "," + "STR_TO_DATE(\"" + dateRequestedIn + "\",\"%m,%d,%Y\")" +",NULL,\"" + str(reasonIn) + "\")")
+            cursor.execute("INSERT INTO maintenancerequest (machineID, serviceWorkerID, daterequested, dateresolved, reasonforrequest) values (" + str(machineIn.returnMachineID()) + "," + str(techIn.returnEmployeeID()) + "," + "STR_TO_DATE(\"" + dateRequestedIn + "\",\"%m,%d,%Y\")" + ",NULL,\"" + str(reasonIn) + "\")")
         machDB.commit()
         cursor.execute("SELECT maintenancerequestID FROM maintenancerequest")    # grab auto-gen ID from db
         id = cursor.fetchall()[-1]                                               # Id is newest in returned list of IDs
@@ -217,29 +217,75 @@ class allClasses:
         machDB.commit()
         self.machineSlotList.append(machineSlot(slotCodeIn, productIn, requestIn, productCountIn, maxAmountIn, restockAtThresholdIn))
 
+    # expects date to be passed as numbers in the string form "month,day,year,hour,minute,second" like "1,1,2000,5,10,1"
+    def addCashSale(self, itemIn: product, machineIn: machine, taxIn: float, saleDateTimeIn: str, cashGivenIn: float) -> None:
+        cursor.execute("INSERT INTO transaction (ProductID, MachineID, Tax, SaleDateTime, CashGiven) values (" + str(itemIn.returnProductID()) + "," + str(machineIn.returnMachineID()) + "," + str(round(taxIn, 2)) + "," + "STR_TO_DATE(\"" + saleDateTimeIn + "\",\"%m,%d,%Y,%h,%i,%s\")" + "," + str(round(cashGivenIn, 2)) + ")")    # add to db
+        machDB.commit()
+        cursor.execute("SELECT saleNumber FROM transaction")    # grab auto-gen ID from db
+        id = cursor.fetchall()[-1]                              # Id is newest in returned list of IDs
+        self.cashSaleList.append(cashSale(id, itemIn, machineIn, taxIn, saleDateTimeIn, cashGivenIn))
 
-    def addCashSale(self) -> None:
-        pass # TODO
+    def addCardSale(self, itemIn: product, machineIn: machine, taxIn: float, saleDateTimeIn: str, feeIn: float, accountIn: str) -> None:
+        cursor.execute("INSERT INTO transaction (ProductID, MachineID, Tax, SaleDateTime, CardFee, AccountCharged) values (" + str(itemIn.returnProductID()) + "," + str(machineIn.returnMachineID()) + "," + str(round(taxIn, 2)) + "," + "STR_TO_DATE(\"" + saleDateTimeIn + "\",\"%m,%d,%Y,%h,%i,%s\")" + "," + str(round(feeIn, 2)) + ",\"" + str(accountIn) + "\")")    # add to db
+        machDB.commit()
+        cursor.execute("SELECT saleNumber FROM transaction")    # grab auto-gen ID from db
+        id = cursor.fetchall()[-1]                              # Id is newest in returned list of IDs
+        self.cardSaleList.append(cardSale(id, itemIn, machineIn, taxIn, saleDateTimeIn, feeIn, accountIn))
 
-    def addCardSale(self) -> None:
-        pass # TODO
+    def addProduct(self, assignedMachineIn : machine, nameIn: str,  descIn: str, nutritIn: str, ingredIn: str, priceIn: float) -> None:
+        cursor.execute("INSERT INTO product (MachineID, Name, Description, NutritionFacts, Ingredients, Price) values (" + str(assignedMachineIn.returnMachineID()) + ",\"" + str(nameIn) + "\",\"" + str(descIn) + "\",\"" + str(nutritIn) + "\",\"" + str(ingredIn) + "\"," + str(round(priceIn, 2)) + ")")    # add to db
+        machDB.commit()
+        cursor.execute("SELECT productID FROM product")       # grab auto-gen ID from db
+        id = cursor.fetchall()[-1]                              # Id is newest in returned list of IDs
+        self.productList.append(product(id, assignedMachineIn, nameIn, descIn, nutritIn, ingredIn, priceIn))
 
-    def addProduct(self) -> None:
-        pass # TODO
+    def addServiceWorker(self, assignedMachineIn: machine, nameIn: str, workerTypeIn: str, phoneIn: str, emailIn: str, companyIn: str) -> None:
+        cursor.execute("INSERT INTO serviceWorker (MachineID, Name, WorkerType, PhoneNumber, Email, Company) values (" + str(assignedMachineIn.returnMachineID()) + ",\"" + str(nameIn) + "\",\"" + str(workerTypeIn) + "\",\"" + str(phoneIn) + "\",\"" + str(emailIn) + "\",\""  + str(companyIn) + "\")")    # add to db
+        machDB.commit()
+        cursor.execute("SELECT workerID FROM serviceWorker")       # grab auto-gen ID from db
+        id = cursor.fetchall()[-1]                              # Id is newest in returned list of IDs
+        self.serviceWorkerList.append(serviceWorker(id, assignedMachineIn, nameIn, workerTypeIn, phoneIn, emailIn, companyIn))
 
-    def addServiceWorker(self) -> None:
-        pass # TODO
-
-    def addMachine(self) -> None:
-        pass # TODO
+    def addMachine(self, addressIn: str, modelNumIn: str, maxSlotsIn: int, lastServicedIn: str, currStateIn: str, daysBetweenSerIn: int) -> None:
+        cursor.execute("INSERT INTO machine (address, modelNumber, currentState, dateLastServiced, daysBetweenServices, MaxProductSlots) values (\"" + str(addressIn) + "\",\"" + str(modelNumIn) + "\",\"" + str(currStateIn) + "\"," + "STR_TO_DATE(\"" + lastServicedIn + "\",\"%m,%d,%Y\")" + "," + str(daysBetweenSerIn) + "," + str(maxSlotsIn) + ")")    # add to db
+        machDB.commit()
+        cursor.execute("SELECT machineID FROM machine")       # grab auto-gen ID from db
+        id = cursor.fetchall()[-1]                            # Id is newest in returned list of IDs
+        self.machineList.append(machine(id, addressIn, modelNumIn, maxSlotsIn, lastServicedIn, currStateIn, daysBetweenSerIn))
 
     ### delete functions. used to delete entries from database table and lists
     ### pass in the ID of the row to delete it
-    def deleteBill(self) -> None:
-        pass # TODO
+    def deleteBill(self, idIn: int) -> None:
+        # make sure this is a bill being deleted
+        for obj in self.billList:
+            if obj.returnCurrencyID() == idIn:
+                break
+        else:
+            return
+        # remove row from db
+        cursor.execute("DELETE FROM currency WHERE currencyID = " + str(idIn))
+        machDB.commit()
+        # remove from list
+        for obj in self.billList:
+            if obj.returnCurrencyID() == idIn:
+                self.billList.remove(obj)
+                break
 
-    def deleteCoin(self) -> None:
-        pass # TODO
+    def deleteCoin(self, idIn) -> None:
+        # make sure this is a coin being deleted
+        for obj in self.coinList:
+            if obj.returnCurrencyID() == idIn:
+                break
+        else:
+            return
+        # remove row from db
+        cursor.execute("DELETE FROM currency WHERE currencyID = " + str(idIn))
+        machDB.commit()
+        # remove from list
+        for obj in self.coinList:
+            if obj.returnCurrencyID() == idIn:
+                self.coinList.remove(obj)
+                break
 
     def deletePerishableItem(self) -> None:
         pass # TODO
