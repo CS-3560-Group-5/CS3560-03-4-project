@@ -64,7 +64,10 @@ class machineSlot:
     ## simple update methods
     def updateProduct(self, newProduct: product) -> None:
         self.productHeld = newProduct
-        cursor.execute("UPDATE `machineSlot` SET productID = \"" + str(newProduct.returnProductID()) + "\" WHERE slotcode = \"" + str(self.numpadCode + "\""))
+        if newProduct != None:
+            cursor.execute("UPDATE `machineSlot` SET productID = \"" + str(newProduct.returnProductID()) + "\" WHERE slotcode = \"" + str(self.numpadCode + "\""))
+        else:
+            cursor.execute("UPDATE `machineSlot` SET productID = NULL WHERE slotcode = \"" + str(self.numpadCode + "\""))
         machDB.commit()
 
     def updateProductCount(self, newProductCount: int) -> None:
@@ -84,7 +87,10 @@ class machineSlot:
 
     def updateRequest(self, newRequest: restockRequest) -> None:
         self.request = newRequest
-        cursor.execute("UPDATE `machineSlot` SET restockRequestID = \"" + str(newRequest.returnRestockRequestID()) + "\" WHERE slotcode = \"" + str(self.numpadCode + "\""))
+        if newRequest != None:
+            cursor.execute("UPDATE `machineSlot` SET restockRequestID = \"" + str(newRequest.returnRestockRequestID()) + "\" WHERE slotcode = \"" + str(self.numpadCode + "\""))
+        else:
+            cursor.execute("UPDATE `machineSlot` SET restockRequestID = NULL WHERE slotcode = \"" + str(self.numpadCode + "\""))
         machDB.commit()
 
 

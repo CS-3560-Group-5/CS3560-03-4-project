@@ -8,8 +8,3 @@ cashSaleList = classes.returnCashSaleList()
 machineList = classes.returnMachineList()
 productList = classes.returnProductList()
 
-
-
-
-
-

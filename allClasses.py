@@ -24,6 +24,12 @@ machDB = mysql.connector.connect(
 )
 cursor = machDB.cursor()
 
+### Important DB Note
+# allClasses expects all tables to have at least 1 row of info each when initalized 
+# also expects the initial data to have IDs in numberical order
+# run VendMachEntireDB.sql on db before running python
+# TODO : Fix these quirks
+
 # class to init all other classes
 # also handles making new instances of classes / rows in the database
 class allClasses:
@@ -123,9 +129,9 @@ class allClasses:
         all = cursor.fetchall()
         for row in all:
             if row[3] != None:
-                self.coinList.append(coin(row[0], row[1], row[2], row[3], row[4]))
+                self.coinList.append(coin(row[0], self.moneyHandlerList[row[1] - 1], row[2], row[3], row[4]))
             else:
-                self.billList.append(bill(row[0], row[1], row[2], row[4]))
+                self.billList.append(bill(row[0], self.moneyHandlerList[row[1] - 1], row[2], row[4]))
 
     ### Use case functions. Needed for logic of vending machine / use cases
 
@@ -271,7 +277,7 @@ class allClasses:
                 self.billList.remove(obj)
                 break
 
-    def deleteCoin(self, idIn) -> None:
+    def deleteCoin(self, idIn: int) -> None:
         # make sure this is a coin being deleted
         for obj in self.coinList:
             if obj.returnCurrencyID() == idIn:
@@ -287,38 +293,187 @@ class allClasses:
                 self.coinList.remove(obj)
                 break
 
-    def deletePerishableItem(self) -> None:
-        pass # TODO
+    def deletePerishableItem(self, idIn: int) -> None:
+        # remove row from db
+        cursor.execute("DELETE FROM perishableItem WHERE perishableitemid = " + str(idIn))
+        machDB.commit()
+        # remove from list
+        for obj in self.perishableItemList:
+            if obj.returnPerishableItemID() == idIn:
+                self.perishableItemList.remove(obj)
+                break
 
-    def deleteMoneyHandler(self) -> None:
-        pass # TODO
+    # !!WARNING!!
+    # to delete a moneyHandler all coins, bills, and restockRequests associated with this moneyhandler must be deleted as well.
+    # function deletes all associated coins, bills, and restockRequests to do this
+    def deleteMoneyHandler(self, idIn: int) -> None:
+        # delete all associated currency and restockrequest
+        cursor.execute("DELETE FROM currency WHERE moneyhandlerid = " + str(idIn))
+        cursor.execute("DELETE FROM restockrequest WHERE moneyhandlerid = " + str(idIn))
+        # remove row from db
+        cursor.execute("DELETE FROM moneyhandler WHERE moneyhandlerid = " + str(idIn))
+        machDB.commit()
+        # remove from all lists
+        temp = []
+        for obj in self.moneyHandlerList:
+            if obj.returnMoneyHandlerID() == idIn:
+                temp.append(obj)
+        for rem in temp:
+            self.moneyHandlerList.remove(rem)
 
-    def deleteRestockRequest(self) -> None:
-        pass # TODO
+        temp = []
+        for obj in self.coinList:
+            if obj.returnMoneyHandlerAssigned().returnMoneyHandlerID() == idIn:
+                temp.append(obj)
+        for rem in temp:
+            self.coinList.remove(rem)
 
-    def deleteMachineSlot(self) -> None:
-        pass # TODO
+        temp = []
+        for obj in self.billList:
+            if obj.returnMoneyHandlerAssigned().returnMoneyHandlerID() == idIn:
+                temp.append(obj)
+        for rem in temp:
+            self.billList.remove(rem)
 
-    def deleteCashSale(self) -> None:
-        pass # TODO
+        temp = []
+        for obj in self.restockRequestList:
+            if obj.returnAssignedMoneyHandler() != None and obj.returnAssignedMoneyHandler().returnMoneyHandlerID() == idIn:
+                temp.append(obj)
+        for rem in temp:
+            self.restockRequestList.remove(rem)
 
-    def deleteCardSale(self) -> None:
-        pass # TODO
+    def deleteRestockRequest(self, idIn: int) -> None:
+        # remove row from db
+        cursor.execute("DELETE FROM restockRequest WHERE restockrequestID = " + str(idIn))
+        machDB.commit()
+        # remove from list
+        for obj in self.restockRequestList:
+            if obj.returnRestockRequestID() == idIn:
+                self.restockRequestList.remove(obj)
+                break
 
-    def deleteProduct(self) -> None:
-        pass # TODO
+    # !!WARNING!!
+    # to delete a machineSlot all perishableItems associated with this machineSlot must be deleted as well.
+    # function deletes all associated perishableItems to do this
+    def deleteMachineSlot(self, idIn: str) -> None:
+        # delete all associated perishableItems
+        cursor.execute("DELETE FROM perishableItem WHERE machineSlotID = \"" + str(idIn) + "\"")
+        # remove row from db
+        cursor.execute("DELETE FROM machineSlot WHERE slotCode = \"" + str(idIn) + "\"")
+        machDB.commit()
+        # remove from all lists
+        temp = []
+        for obj in self.machineSlotList:
+            if obj.returnNumpadCode() == idIn:
+                temp.append(obj)
+        for rem in temp:
+            self.machineSlotList.remove(rem)
 
-    def deleteMaintenanceRequest(self) -> None:
-        pass # TODO
+        temp = []
+        for obj in self.perishableItemList:
+            if obj.returnSlot().returnNumpadCode() == idIn:
+                temp.append(obj)
+        for rem in temp:
+            self.perishableItemList.remove(rem)
 
+
+
+    def deleteCashSale(self, idIn: int) -> None:
+        # make sure this is a cashSale being deleted
+        for obj in self.cashSaleList:
+            if obj.returnSaleNumber() == idIn:
+                break
+        else:
+            return
+        # remove row from db
+        cursor.execute("DELETE FROM `transaction` WHERE salenumber = " + str(idIn))
+        machDB.commit()
+        # remove from list
+        for obj in self.cashSaleList:
+            if obj.returnSaleNumber() == idIn:
+                self.cashSaleList.remove(obj)
+                break
+
+    def deleteCardSale(self, idIn: int) -> None:
+        # make sure this is a cardSale being deleted
+        for obj in self.cardSaleList:
+            if obj.returnSaleNumber() == idIn:
+                break
+        else:
+            return
+        # remove row from db
+        cursor.execute("DELETE FROM `transaction` WHERE salenumber = " + str(idIn))
+        machDB.commit()
+        # remove from list
+        for obj in self.cardSaleList:
+            if obj.returnSaleNumber() == idIn:
+                self.cardSaleList.remove(obj)
+                break
+
+    # !!WARNING!!
+    # to delete a product all transactions  associated with this product must be deleted as well.
+    # also, all machineslots associated need to have their productID set to null
+    def deleteProduct(self, idIn: int) -> None:
+        # delete all associated transactions
+        cursor.execute("DELETE FROM `transaction` WHERE ProductID = " + str(idIn))
+        # set machineslot row to null/none
+        cursor.execute("UPDATE machineslot SET productID = NULL WHERE ProductID = " + str(idIn))
+        # remove row from db
+        machDB.commit()
+        cursor.execute("DELETE FROM `product` WHERE productID = " + str(idIn))
+        machDB.commit()
+
+        # remove from all lists
+        temp = []
+        for obj in self.productList:
+            if obj.returnProductID() == idIn:
+                temp.append(obj)
+        for rem in temp:
+            self.productList.remove(rem)
+
+        temp = []
+        for obj in self.cashSaleList:
+            if obj.returnProduct().returnProductID() == idIn:
+                temp.append(obj)
+        for rem in temp:
+            self.cashSaleList.remove(rem)
+
+        temp = []
+        for obj in self.cardSaleList:
+            if obj.returnProduct().returnProductID() == idIn:
+                temp.append(obj)
+        for rem in temp:
+            self.cardSaleList.remove(rem)
+
+        # update machineSlot list
+        for obj in self.machineSlotList:
+            if obj.returnProductHeld() != None and obj.returnProductHeld().returnProductID() == idIn:
+                obj.updateProduct(None)
+
+    def deleteMaintenanceRequest(self, idIn: int) -> None:
+        # remove row from db
+        cursor.execute("DELETE FROM maintenanceRequest WHERE maintenanceRequestID = " + str(idIn))
+        machDB.commit()
+        # remove from list
+        for obj in self.maintenanceRequestList:
+            if obj.returnMaintenanceRequestID() == idIn:
+                self.maintenanceRequestList.remove(obj)
+                break
+
+    # !!WARNING!!
+    # to delete a serviceworker all restockRequests and maintenanceRequests associated with this product must be deleted as well.
+    # function deletes all associated restockRequests and maintenanceRequests to do this
     def deleteServiceWorker(self) -> None:
         pass # TODO
 
+    # !!WARNING!!
+    # to delete a machine, all associated information must be deleted as well
+    # this cascades to deleting ALL classes associated with this machine, which is a lot
     def deleteMachine(self) -> None:
         pass # TODO
 
 
-    # list returns
+    ### list returns
     def returnBillList(self):
         return self.billList
     
