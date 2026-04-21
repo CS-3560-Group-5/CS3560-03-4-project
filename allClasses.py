@@ -78,9 +78,9 @@ class allClasses:
         all = cursor.fetchall()
         for row in all:
             if row[5] != None:      # if cashGiven is none/null, then its a cardsale not a cash sale
-                self.cardSaleList.append(cardSale(row[0], self.productList[row[1] - 1], row[2], row[3], row[4], row[5], row[6]))
+                self.cardSaleList.append(cardSale(row[0], self.productList[row[1] - 1], self.machineList[row[2] - 1], row[3], row[4], row[5], row[6]))
             else:
-                self.cashSaleList.append(cashSale(row[0], self.productList[row[1] - 1], row[2], row[3], row[4], row[7]))
+                self.cashSaleList.append(cashSale(row[0], self.productList[row[1] - 1], self.machineList[row[2] - 1], row[3], row[4], row[7]))
 
         # setting up moneyHandlers
         cursor.execute("SELECT * FROM moneyhandler")
@@ -252,6 +252,7 @@ class allClasses:
         id = cursor.fetchall()[-1]                              # Id is newest in returned list of IDs
         self.serviceWorkerList.append(serviceWorker(id, assignedMachineIn, nameIn, workerTypeIn, phoneIn, emailIn, companyIn))
 
+    # !don't use if there's already a machine! system is designed for a single machine subsystem, not for multiple machines. Things will break if numMachine > 1
     def addMachine(self, addressIn: str, modelNumIn: str, maxSlotsIn: int, lastServicedIn: str, currStateIn: str, daysBetweenSerIn: int) -> None:
         cursor.execute("INSERT INTO machine (address, modelNumber, currentState, dateLastServiced, daysBetweenServices, MaxProductSlots) values (\"" + str(addressIn) + "\",\"" + str(modelNumIn) + "\",\"" + str(currStateIn) + "\"," + "STR_TO_DATE(\"" + lastServicedIn + "\",\"%m,%d,%Y\")" + "," + str(daysBetweenSerIn) + "," + str(maxSlotsIn) + ")")    # add to db
         machDB.commit()
@@ -342,7 +343,13 @@ class allClasses:
         for rem in temp:
             self.restockRequestList.remove(rem)
 
+    # !!WARNING!!
+    # to delete a restock request all perishableItems and machineslots associated must be modified as well.
+    # function changes all associated perishableItems and machineslots restockrequests to null/none to do this
     def deleteRestockRequest(self, idIn: int) -> None:
+        # modify all associated perishableitems and machineslots
+        cursor.execute("UPDATE perishableitem SET restockrequestID = NULL WHERE restockrequestid = " + str(idIn))
+        cursor.execute("UPDATE machineslot SET restockrequestID = NULL WHERE restockrequestid = " + str(idIn))
         # remove row from db
         cursor.execute("DELETE FROM restockRequest WHERE restockrequestID = " + str(idIn))
         machDB.commit()
@@ -375,8 +382,6 @@ class allClasses:
                 temp.append(obj)
         for rem in temp:
             self.perishableItemList.remove(rem)
-
-
 
     def deleteCashSale(self, idIn: int) -> None:
         # make sure this is a cashSale being deleted
@@ -419,7 +424,6 @@ class allClasses:
         # set machineslot row to null/none
         cursor.execute("UPDATE machineslot SET productID = NULL WHERE ProductID = " + str(idIn))
         # remove row from db
-        machDB.commit()
         cursor.execute("DELETE FROM `product` WHERE productID = " + str(idIn))
         machDB.commit()
 
@@ -463,16 +467,52 @@ class allClasses:
     # !!WARNING!!
     # to delete a serviceworker all restockRequests and maintenanceRequests associated with this product must be deleted as well.
     # function deletes all associated restockRequests and maintenanceRequests to do this
-    def deleteServiceWorker(self) -> None:
-        pass # TODO
+    def deleteServiceWorker(self, idIn: int) -> None:
+        # delete all associated restock and maint requests
+        cursor.execute("DELETE FROM restockrequest WHERE serviceworkerID = " + str(idIn))
+        cursor.execute("DELETE FROM maintenancerequest WHERE serviceworkerID = " + str(idIn))
+        # remove row from db
+        cursor.execute("DELETE FROM serviceworker WHERE workerid = " + str(idIn))
+        machDB.commit()
+
+        # remove from lists
+        temp = []
+        for obj in self.restockRequestList:
+            if obj.returnAssignedRestocker().returnEmployeeID() == idIn:
+                temp.append(obj)
+        for rem in temp:
+            self.restockRequestList.remove(rem)
+
+        temp = []
+        for obj in self.maintenanceRequestList:
+            if obj.returnAssignedTechnician().returnEmployeeID() == idIn:
+                temp.append(obj)
+        for rem in temp:
+            self.maintenanceRequestList.remove(rem)
+
+        temp = []
+        for obj in self.serviceWorkerList:
+            if obj.returnEmployeeID() == idIn:
+                temp.append(obj)
+        for rem in temp:
+            self.serviceWorkerList.remove(rem)
 
     # !!WARNING!!
-    # to delete a machine, all associated information must be deleted as well
-    # this cascades to deleting ALL classes associated with this machine, which is a lot
-    def deleteMachine(self) -> None:
-        pass # TODO
-
-
+    # This deletes everything, setting all schema back to empty
+    # treat as a "deleteMachine()" function
+    def deleteAll(self) -> None:
+        cursor.execute("DELETE FROM `Transaction`")
+        cursor.execute("DELETE FROM MaintenanceRequest")
+        cursor.execute("DELETE FROM perishableitem")
+        cursor.execute("DELETE FROM machineslot")
+        cursor.execute("DELETE FROM product")
+        cursor.execute("DELETE FROM currency")
+        cursor.execute("DELETE FROM restockrequest")
+        cursor.execute("DELETE FROM serviceworker")
+        cursor.execute("DELETE FROM moneyhandler")
+        cursor.execute("DELETE FROM machine")
+        machDB.commit()
+        
     ### list returns
     def returnBillList(self):
         return self.billList
