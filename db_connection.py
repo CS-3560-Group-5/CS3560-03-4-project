@@ -1,17 +1,16 @@
-## db_connection.py
-## 4/23/2026
-## Database connection module for the Vending Machine System
-## Provides functions to read from and write to the MySQL database
-## This module bridges the GUI with the backend MySQL database
+# db_connection.py
+# 4/23/2026
+# Database connection module for the Vending Machine System
+# Provides functions to read from and write to the MySQL database
+# This module bridges the GUI with the backend MySQL database
 
 import mysql.connector
 from datetime import datetime
 
-# ── Database Connection ─────────────────────────────────────────
 # Establishes and returns a connection to the vendingmachine database
 # Uses the 'interface' user as specified in the project README
 def get_connection():
-    """Creates and returns a new MySQL database connection."""
+    # Creates and returns a new MySQL database connection
     return mysql.connector.connect(
         host="localhost",
         user="interface",
@@ -20,14 +19,11 @@ def get_connection():
     )
 
 
-# ── Product / Slot Queries ──────────────────────────────────────
-# Functions to retrieve product and machine slot data for the GUI
-
+# Retrieves all machine slots with their associated product info
+# Returns a list of dictionaries, each representing a slot in the machine
+# Empty slots (no product assigned) are included with None values
+# Used by the Record Sale and Update Inventory screens
 def get_all_products_with_slots():
-    """Retrieves all machine slots with their associated product info.
-    Returns a list of dictionaries, each representing a slot in the machine.
-    Empty slots (no product assigned) are included with None values.
-    Used by the Record Sale and Update Inventory screens."""
     conn = get_connection()
     cursor = conn.cursor(dictionary=True)
     
@@ -68,9 +64,9 @@ def get_all_products_with_slots():
     return slots
 
 
+# Retrieves the main machine's information from the database
+# Returns a dictionary with machine details like address, model, and state
 def get_machine_info():
-    """Retrieves the main machine's information from the database.
-    Returns a dictionary with machine details like address, model, and state."""
     conn = get_connection()
     cursor = conn.cursor(dictionary=True)
     
@@ -82,13 +78,10 @@ def get_machine_info():
     return result
 
 
-# ── Transaction Functions ───────────────────────────────────────
-# Functions to record sales (card and cash transactions)
-
+# Records a card transaction in the database
+# Inserts a new row into the Transaction table with card-specific fields
+# Cash fields (CashGiven) are set to NULL for card transactions
 def record_card_sale(product_id, machine_id, tax, card_fee, account_charged):
-    """Records a card transaction in the database.
-    Inserts a new row into the Transaction table with card-specific fields.
-    Cash fields (CashGiven) are set to NULL for card transactions."""
     conn = get_connection()
     cursor = conn.cursor()
     
@@ -104,10 +97,10 @@ def record_card_sale(product_id, machine_id, tax, card_fee, account_charged):
     return sale_number
 
 
+# Records a cash transaction in the database
+# Inserts a new row into the Transaction table with cash-specific fields
+# Card fields (CardFee, AccountCharged) are set to NULL for cash transactions
 def record_cash_sale(product_id, machine_id, tax, cash_given):
-    """Records a cash transaction in the database.
-    Inserts a new row into the Transaction table with cash-specific fields.
-    Card fields (CardFee, AccountCharged) are set to NULL for cash transactions."""
     conn = get_connection()
     cursor = conn.cursor()
     
@@ -123,12 +116,9 @@ def record_cash_sale(product_id, machine_id, tax, cash_given):
     return sale_number
 
 
-# ── Inventory Functions ─────────────────────────────────────────
-# Functions to update product counts in machine slots
-
+# Updates the product count for a specific machine slot
+# Called after a sale (decrement) or after restocking (increment)
 def update_slot_count(slot_code, new_count):
-    """Updates the product count for a specific machine slot.
-    Called after a sale (decrement) or after restocking (increment)."""
     conn = get_connection()
     cursor = conn.cursor()
     
@@ -143,10 +133,10 @@ def update_slot_count(slot_code, new_count):
     conn.close()
 
 
+# Adds a specified quantity to a machine slot's current product count
+# Used by the Update Inventory screen when a restocker refills a slot
+# Returns the new count after restocking
 def restock_slot(slot_code, add_quantity):
-    """Adds a specified quantity to a machine slot's current product count.
-    Used by the Update Inventory screen when a restocker refills a slot.
-    Returns the new count after restocking."""
     conn = get_connection()
     cursor = conn.cursor(dictionary=True)
     
@@ -177,13 +167,10 @@ def restock_slot(slot_code, add_quantity):
     return new_count
 
 
-# ── Restock Request Functions ───────────────────────────────────
-# Functions to create and manage restock requests
-
+# Checks if a slot's product count has fallen below its restock threshold
+# If so, creates a new restock request in the database
+# Called after each sale to monitor inventory levels
 def check_and_create_restock_request(slot_code, worker_id=1):
-    """Checks if a slot's product count has fallen below its restock threshold.
-    If so, creates a new restock request in the database.
-    Called after each sale to monitor inventory levels."""
     conn = get_connection()
     cursor = conn.cursor(dictionary=True)
     
@@ -214,9 +201,9 @@ def check_and_create_restock_request(slot_code, worker_id=1):
     conn.close()
 
 
+# Retrieves all unresolved restock requests (where DateResolved is NULL)
+# Used to display pending restock tasks
 def get_open_restock_requests():
-    """Retrieves all unresolved restock requests (where DateResolved is NULL).
-    Used to display pending restock tasks."""
     conn = get_connection()
     cursor = conn.cursor(dictionary=True)
     
@@ -233,9 +220,9 @@ def get_open_restock_requests():
     return results
 
 
+# Marks a restock request as resolved by setting its DateResolved to today
+# Called after a restocker confirms they have restocked the slot
 def resolve_restock_request(request_id):
-    """Marks a restock request as resolved by setting its DateResolved to today.
-    Called after a restocker confirms they have restocked the slot."""
     conn = get_connection()
     cursor = conn.cursor()
     
@@ -250,12 +237,9 @@ def resolve_restock_request(request_id):
     conn.close()
 
 
-# ── Maintenance Request Functions ───────────────────────────────
-# Functions to retrieve maintenance request data
-
+# Retrieves all unresolved maintenance requests
+# Returns a list of dictionaries with request details and assigned technician
 def get_open_maintenance_requests():
-    """Retrieves all unresolved maintenance requests.
-    Returns a list of dictionaries with request details and assigned technician."""
     conn = get_connection()
     cursor = conn.cursor(dictionary=True)
     
@@ -272,12 +256,9 @@ def get_open_maintenance_requests():
     return results
 
 
-# ── Service Worker Functions ────────────────────────────────────
-# Functions to retrieve service worker (restocker/technician) data
-
+# Retrieves all service workers assigned to the machine
+# Returns a list of dictionaries with worker details
 def get_service_workers():
-    """Retrieves all service workers assigned to the machine.
-    Returns a list of dictionaries with worker details."""
     conn = get_connection()
     cursor = conn.cursor(dictionary=True)
     
@@ -289,7 +270,6 @@ def get_service_workers():
     return results
 
 
-# ── Testing ─────────────────────────────────────────────────────
 # Quick test to verify database connection works
 if __name__ == "__main__":
     print("Testing database connection...")
