@@ -1,62 +1,72 @@
 import tkinter as tk
-from tkinter import ttk, messagebox
+from tkinter import messagebox
 from datetime import datetime
 
 # ── Color palette ──────────────────────────────────────────────
-BG_DARK    = "#1a1a2e"
-BG_PANEL   = "#16213e"
-BG_CARD    = "#0f3460"
-ACCENT     = "#e94560"
-ACCENT2    = "#f5a623"
-TEXT_WHITE = "#ffffff"
-TEXT_GRAY  = "#a0aec0"
-GREEN      = "#48bb78"
-RED        = "#fc8181"
-BTN_HOVER  = "#c73652"
+# Define consistent colors used throughout the UI
+BG_DARK    = "#1a1a2e"  # Main dark background
+BG_PANEL   = "#16213e"  # Slightly lighter panel background
+BG_CARD    = "#0f3460"  # Card/tile background color
+ACCENT     = "#e94560"  # Primary accent color (red-pink) for headers and buttons
+ACCENT2    = "#f5a623"  # Secondary accent color (orange) for prices and highlights
+TEXT_WHITE = "#ffffff"  # Primary text color
+TEXT_GRAY  = "#a0aec0"  # Secondary/muted text color
+GREEN      = "#48bb78"  # Status OK and success messages
+RED        = "#fc8181"  # Status EMPTY and error messages
+BTN_HOVER  = "#c73652"  # Button hover state color
 
-# ── Mock data ───────────────────────────────────────────────────
+# ── Mock product data ───────────────────────────────────────────
+# Each product represents one machine slot with code, name, price,
+# current stock count, and maximum capacity
 PRODUCTS = [
-    {"code": "A1", "name": "Lays Chips",      "price": 1.50, "count": 8,  "max": 10},
-    {"code": "A2", "name": "Doritos",          "price": 1.75, "count": 5,  "max": 10},
-    {"code": "A3", "name": "Snickers",         "price": 1.25, "count": 3,  "max": 10},
-    {"code": "A4", "name": "Kit Kat",          "price": 1.25, "count": 0,  "max": 10},
-    {"code": "B1", "name": "Coca-Cola",        "price": 2.00, "count": 7,  "max": 12},
-    {"code": "B2", "name": "Sprite",           "price": 2.00, "count": 4,  "max": 12},
-    {"code": "B3", "name": "Water",            "price": 1.00, "count": 10, "max": 12},
-    {"code": "B4", "name": "Orange Juice",     "price": 2.50, "count": 2,  "max": 12},
-    {"code": "C1", "name": "Granola Bar",      "price": 1.50, "count": 6,  "max": 10},
-    {"code": "C2", "name": "Trail Mix",        "price": 2.00, "count": 1,  "max": 10},
-    {"code": "C3", "name": "Peanuts",          "price": 1.00, "count": 9,  "max": 10},
-    {"code": "C4", "name": "Protein Bar",      "price": 3.00, "count": 0,  "max": 10},
+    {"code": "A1", "name": "Lays Chips",   "price": 1.50, "count": 8,  "max": 10},
+    {"code": "A2", "name": "Doritos",       "price": 1.75, "count": 5,  "max": 10},
+    {"code": "A3", "name": "Snickers",      "price": 1.25, "count": 3,  "max": 10},
+    {"code": "A4", "name": "Kit Kat",       "price": 1.25, "count": 0,  "max": 10},  # Sold out
+    {"code": "B1", "name": "Coca-Cola",     "price": 2.00, "count": 7,  "max": 12},
+    {"code": "B2", "name": "Sprite",        "price": 2.00, "count": 4,  "max": 12},
+    {"code": "B3", "name": "Water",         "price": 1.00, "count": 10, "max": 12},
+    {"code": "B4", "name": "Orange Juice",  "price": 2.50, "count": 2,  "max": 12},
+    {"code": "C1", "name": "Granola Bar",   "price": 1.50, "count": 6,  "max": 10},
+    {"code": "C2", "name": "Trail Mix",     "price": 2.00, "count": 1,  "max": 10},
+    {"code": "C3", "name": "Peanuts",       "price": 1.00, "count": 9,  "max": 10},
+    {"code": "C4", "name": "Protein Bar",   "price": 3.00, "count": 0,  "max": 10},  # Sold out
 ]
 
+# Worker ID used in the Update Inventory screen header
 WORKER_ID = "W-1042"
 
 
+# ═══════════════════════════════════════════════════════════════
+# Main application class — manages the window and screen navigation
+# Extends tk.Tk to serve as the root window
 # ═══════════════════════════════════════════════════════════════
 class VendingMachineApp(tk.Tk):
     def __init__(self):
         super().__init__()
         self.title("Vending Machine System")
         self.geometry("900x680")
-        self.resizable(False, False)
+        self.resizable(False, False)  # Fixed window size for consistent layout
         self.configure(bg=BG_DARK)
+        self.current_frame = None  # Tracks the currently displayed screen
+        self.show_home()           # Start on the home screen
 
-        self.current_frame = None
-        self.show_home()
-
-    # ── Navigation ──────────────────────────────────────────────
     def switch_frame(self, FrameClass, **kwargs):
+        """Destroys the current screen and replaces it with a new one."""
         if self.current_frame:
             self.current_frame.destroy()
         self.current_frame = FrameClass(self, **kwargs)
         self.current_frame.pack(fill="both", expand=True)
 
-    def show_home(self):       self.switch_frame(HomeScreen)
+    # Navigation methods — called by buttons to switch between screens
+    def show_home(self):        self.switch_frame(HomeScreen)
     def show_record_sale(self): self.switch_frame(RecordSaleScreen)
-    def show_inventory(self):  self.switch_frame(UpdateInventoryScreen)
+    def show_inventory(self):   self.switch_frame(UpdateInventoryScreen)
 
 
+# ═══════════════════════════════════════════════════════════════
+# Home Screen — the main menu shown when the app launches
+# Displays two action buttons: Record Sale and Update Inventory
 # ═══════════════════════════════════════════════════════════════
 class HomeScreen(tk.Frame):
     def __init__(self, master):
@@ -64,7 +74,8 @@ class HomeScreen(tk.Frame):
         self._build()
 
     def _build(self):
-        # Header
+        """Builds the header bar and two large navigation buttons."""
+        # Top header bar with machine name and current date
         hdr = tk.Frame(self, bg=BG_PANEL, height=80)
         hdr.pack(fill="x")
         tk.Label(hdr, text="🏪  VENDING MACHINE SYSTEM",
@@ -74,55 +85,56 @@ class HomeScreen(tk.Frame):
                  font=("Courier", 10), fg=TEXT_GRAY, bg=BG_PANEL
                  ).pack(side="right", padx=24)
 
-        # Body
+        # Center body with action selection label and buttons
         body = tk.Frame(self, bg=BG_DARK)
         body.pack(expand=True)
-
         tk.Label(body, text="Select an Action",
                  font=("Courier", 16), fg=TEXT_WHITE, bg=BG_DARK
                  ).pack(pady=(60, 40))
 
-        self._big_btn(body, "💳  Record Sale",
-                      "Customer purchases a product",
-                      self.master.show_record_sale)
-        tk.Frame(body, height=20, bg=BG_DARK).pack()
-        self._big_btn(body, "📦  Update Inventory",
-                      "Restocker updates machine slots",
-                      self.master.show_inventory)
+        # Create the two main action buttons
+        self._big_btn(body, "💳  Record Sale",      "Customer purchases a product",   self.master.show_record_sale)
+        tk.Frame(body, height=20, bg=BG_DARK).pack()  # Spacer between buttons
+        self._big_btn(body, "📦  Update Inventory", "Restocker updates machine slots", self.master.show_inventory)
 
     def _big_btn(self, parent, title, subtitle, cmd):
+        """Creates a large clickable card button with title, subtitle, and hover effect."""
         card = tk.Frame(parent, bg=BG_CARD, cursor="hand2", width=420, height=90)
         card.pack_propagate(False)
         card.pack()
-        tk.Label(card, text=title, font=("Courier", 14, "bold"),
-                 fg=TEXT_WHITE, bg=BG_CARD).pack(anchor="w", padx=20, pady=(18, 2))
-        tk.Label(card, text=subtitle, font=("Courier", 10),
-                 fg=TEXT_GRAY, bg=BG_CARD).pack(anchor="w", padx=20)
+        tk.Label(card, text=title,    font=("Courier", 14, "bold"), fg=TEXT_WHITE, bg=BG_CARD).pack(anchor="w", padx=20, pady=(18, 2))
+        tk.Label(card, text=subtitle, font=("Courier", 10),         fg=TEXT_GRAY,  bg=BG_CARD).pack(anchor="w", padx=20)
+
+        # Bind click event to the card and all child labels
         card.bind("<Button-1>", lambda e: cmd())
         for w in card.winfo_children():
             w.bind("<Button-1>", lambda e: cmd())
+
+        # Hover effect: highlight card red on mouse enter, restore on leave
         card.bind("<Enter>", lambda e: card.configure(bg=ACCENT))
         card.bind("<Leave>", lambda e: card.configure(bg=BG_CARD))
 
 
 # ═══════════════════════════════════════════════════════════════
+# Use Case 1: Record Sale Screen
+# Allows a customer to select a product, choose a payment method
+# (cash or card), and process the transaction with receipt output
+# ═══════════════════════════════════════════════════════════════
 class RecordSaleScreen(tk.Frame):
-    """Use Case 1 – Record Sale"""
-
     def __init__(self, master):
         super().__init__(master, bg=BG_DARK)
-        self.selected   = None   # product dict
-        self.payment    = tk.StringVar(value="cash")
-        self.input_code = tk.StringVar()
-        self.cash_given = tk.DoubleVar()
+        self.selected   = None              # Currently selected product dict
+        self.payment    = tk.StringVar(value="cash")  # Payment method selection
+        self.cash_given = tk.DoubleVar()    # Amount of cash entered by customer
         self._build()
 
-    # ── Layout ──────────────────────────────────────────────────
     def _build(self):
+        """Builds the full Record Sale layout: header, product grid, and sale panel."""
         self._header()
         main = tk.Frame(self, bg=BG_DARK)
         main.pack(fill="both", expand=True, padx=16, pady=10)
 
+        # Split layout: product grid on left, order/payment panel on right
         left  = tk.Frame(main, bg=BG_DARK)
         right = tk.Frame(main, bg=BG_DARK, width=300)
         left.pack(side="left", fill="both", expand=True)
@@ -132,30 +144,31 @@ class RecordSaleScreen(tk.Frame):
         self._sale_panel(right)
 
     def _header(self):
+        """Builds the top navigation bar with a Back button and screen title."""
         hdr = tk.Frame(self, bg=BG_PANEL)
         hdr.pack(fill="x")
-        tk.Button(hdr, text="← Back", font=("Courier", 10),
-                  bg=BG_PANEL, fg=TEXT_GRAY, bd=0, cursor="hand2",
-                  command=self.master.show_home).pack(side="left", padx=14, pady=14)
-        tk.Label(hdr, text="💳  RECORD SALE",
-                 font=("Courier", 16, "bold"), fg=ACCENT, bg=BG_PANEL
-                 ).pack(side="left", padx=4, pady=14)
+        tk.Button(hdr, text="← Back", font=("Courier", 10), bg=BG_PANEL, fg=TEXT_GRAY,
+                  bd=0, cursor="hand2", command=self.master.show_home).pack(side="left", padx=14, pady=14)
+        tk.Label(hdr, text="💳  RECORD SALE", font=("Courier", 16, "bold"),
+                 fg=ACCENT, bg=BG_PANEL).pack(side="left", padx=4, pady=14)
 
-    # ── Product grid ────────────────────────────────────────────
     def _product_grid(self, parent):
+        """Builds the 4-column product grid showing all 12 machine slots."""
         tk.Label(parent, text="Select Product", font=("Courier", 11, "bold"),
                  fg=TEXT_GRAY, bg=BG_DARK).pack(anchor="w", pady=(4, 6))
-
         grid_frame = tk.Frame(parent, bg=BG_DARK)
         grid_frame.pack(fill="both", expand=True)
 
+        # Place each product tile in a 3-row x 4-column grid layout
         for i, p in enumerate(PRODUCTS):
             r, c = divmod(i, 4)
             self._product_tile(grid_frame, p, r, c)
 
     def _product_tile(self, parent, p, row, col):
+        """Creates a single product tile showing code, name, price, and stock status.
+        Sold-out items are grayed out and non-clickable."""
         is_empty = p["count"] == 0
-        bg = "#2d3748" if is_empty else BG_CARD
+        bg = "#2d3748" if is_empty else BG_CARD  # Gray out sold-out tiles
 
         tile = tk.Frame(parent, bg=bg, width=130, height=100,
                         highlightbackground=BG_DARK, highlightthickness=2)
@@ -163,53 +176,47 @@ class RecordSaleScreen(tk.Frame):
         tile.grid_propagate(False)
         parent.grid_columnconfigure(col, weight=1)
 
-        tk.Label(tile, text=p["code"], font=("Courier", 10, "bold"),
-                 fg=ACCENT2, bg=bg).place(x=6, y=4)
+        # Display slot code (e.g. A1), product name, price, and quantity
+        tk.Label(tile, text=p["code"], font=("Courier", 10, "bold"), fg=ACCENT2, bg=bg).place(x=6, y=4)
         tk.Label(tile, text=p["name"], font=("Courier", 9, "bold"),
                  fg=TEXT_WHITE if not is_empty else TEXT_GRAY,
-                 bg=bg, wraplength=110, justify="center"
-                 ).place(relx=0.5, rely=0.42, anchor="center")
+                 bg=bg, wraplength=110, justify="center").place(relx=0.5, rely=0.42, anchor="center")
         tk.Label(tile, text=f"${p['price']:.2f}", font=("Courier", 10),
-                 fg=GREEN if not is_empty else TEXT_GRAY, bg=bg
-                 ).place(relx=0.5, rely=0.75, anchor="center")
+                 fg=GREEN if not is_empty else TEXT_GRAY, bg=bg).place(relx=0.5, rely=0.75, anchor="center")
 
         if is_empty:
-            tk.Label(tile, text="SOLD OUT", font=("Courier", 7, "bold"),
-                     fg=RED, bg=bg).place(relx=0.5, rely=0.9, anchor="center")
+            # Show SOLD OUT label for empty slots — no click binding
+            tk.Label(tile, text="SOLD OUT", font=("Courier", 7, "bold"), fg=RED, bg=bg).place(relx=0.5, rely=0.9, anchor="center")
         else:
-            tk.Label(tile, text=f"Qty: {p['count']}", font=("Courier", 7),
-                     fg=TEXT_GRAY, bg=bg).place(relx=0.95, rely=0.96, anchor="se")
+            # Show remaining quantity and bind click to select this product
+            tk.Label(tile, text=f"Qty: {p['count']}", font=("Courier", 7), fg=TEXT_GRAY, bg=bg).place(relx=0.95, rely=0.96, anchor="se")
             tile.bind("<Button-1>", lambda e, prod=p: self._select(prod))
             for w in tile.winfo_children():
                 w.bind("<Button-1>", lambda e, prod=p: self._select(prod))
-            tile.bind("<Enter>", lambda e, t=tile, b=bg: t.configure(bg=ACCENT) if not is_empty else None)
-            tile.bind("<Leave>", lambda e, t=tile, b=bg: t.configure(bg=b))
 
-    # ── Sale panel (right side) ──────────────────────────────────
     def _sale_panel(self, parent):
-        # Selected item display
+        """Builds the right-side panel: order summary, payment method, and process button."""
+        # Order summary section — updates when a product is selected
         tk.Label(parent, text="Order Summary", font=("Courier", 11, "bold"),
                  fg=TEXT_GRAY, bg=BG_DARK).pack(anchor="w")
-
         self.summary_frame = tk.Frame(parent, bg=BG_PANEL, width=280, height=110)
         self.summary_frame.pack(fill="x", pady=(4, 12))
         self.summary_frame.pack_propagate(False)
         self._refresh_summary()
 
-        # Payment method
+        # Payment method radio buttons (Cash or Card)
         tk.Label(parent, text="Payment Method", font=("Courier", 11, "bold"),
                  fg=TEXT_GRAY, bg=BG_DARK).pack(anchor="w")
         pf = tk.Frame(parent, bg=BG_DARK)
         pf.pack(fill="x", pady=(4, 12))
         for val, label in [("cash", "💵 Cash"), ("card", "💳 Card")]:
-            rb = tk.Radiobutton(pf, text=label, variable=self.payment,
-                                value=val, font=("Courier", 10),
-                                fg=TEXT_WHITE, bg=BG_DARK, selectcolor=BG_CARD,
-                                activebackground=BG_DARK, activeforeground=TEXT_WHITE,
-                                command=self._refresh_payment)
-            rb.pack(side="left", padx=8)
+            tk.Radiobutton(pf, text=label, variable=self.payment, value=val,
+                           font=("Courier", 10), fg=TEXT_WHITE, bg=BG_DARK,
+                           selectcolor=BG_CARD, activebackground=BG_DARK,
+                           activeforeground=TEXT_WHITE,
+                           command=self._refresh_payment).pack(side="left", padx=8)
 
-        # Cash entry (shown when cash selected)
+        # Cash input field — shown when cash payment is selected
         self.cash_frame = tk.Frame(parent, bg=BG_DARK)
         self.cash_frame.pack(fill="x", pady=(0, 8))
         tk.Label(self.cash_frame, text="Cash Given ($)", font=("Courier", 10),
@@ -219,7 +226,7 @@ class RecordSaleScreen(tk.Frame):
                                    fg=TEXT_WHITE, insertbackground=TEXT_WHITE, bd=0)
         self.cash_entry.pack(fill="x", ipady=6, pady=2)
 
-        # Card number (shown when card selected)
+        # Card input field — shown when card payment is selected
         self.card_frame = tk.Frame(parent, bg=BG_DARK)
         tk.Label(self.card_frame, text="Card Number (last 4)", font=("Courier", 10),
                  fg=TEXT_GRAY, bg=BG_DARK).pack(anchor="w")
@@ -227,51 +234,47 @@ class RecordSaleScreen(tk.Frame):
                                    bg=BG_CARD, fg=TEXT_WHITE,
                                    insertbackground=TEXT_WHITE, bd=0)
         self.card_entry.pack(fill="x", ipady=6, pady=2)
-        self._refresh_payment()
+        self._refresh_payment()  # Show correct input field on load
 
-        # Process button
-        self.process_btn = tk.Button(parent, text="PROCESS SALE ▶",
-                                     font=("Courier", 12, "bold"),
-                                     bg=ACCENT, fg=TEXT_WHITE, bd=0,
-                                     activebackground=BTN_HOVER,
-                                     cursor="hand2", pady=12,
-                                     command=self._process_sale)
-        self.process_btn.pack(fill="x", pady=(10, 0))
+        # Process Sale button — triggers payment validation and receipt generation
+        tk.Button(parent, text="PROCESS SALE ▶", font=("Courier", 12, "bold"),
+                  bg=ACCENT, fg=TEXT_WHITE, bd=0, activebackground=BTN_HOVER,
+                  cursor="hand2", pady=12, command=self._process_sale).pack(fill="x", pady=(10, 0))
 
-        # Receipt area
+        # Receipt label — displays transaction result after processing
         self.receipt_label = tk.Label(parent, text="", font=("Courier", 9),
-                                      fg=GREEN, bg=BG_DARK, justify="left",
-                                      wraplength=270)
+                                      fg=GREEN, bg=BG_DARK, justify="left", wraplength=270)
         self.receipt_label.pack(anchor="w", pady=(10, 0))
 
     def _refresh_summary(self):
+        """Updates the order summary panel based on the currently selected product."""
         for w in self.summary_frame.winfo_children():
-            w.destroy()
+            w.destroy()  # Clear previous summary content
+
         if not self.selected:
+            # Show placeholder if no product has been selected yet
             tk.Label(self.summary_frame, text="No product selected",
-                     font=("Courier", 10), fg=TEXT_GRAY, bg=BG_PANEL
-                     ).pack(expand=True)
+                     font=("Courier", 10), fg=TEXT_GRAY, bg=BG_PANEL).pack(expand=True)
         else:
+            # Calculate tax (9.5%) and total, then display each line item
             p = self.selected
             tax = round(p["price"] * 0.095, 2)
             total = round(p["price"] + tax, 2)
-            for label, val in [
-                ("Product:", p["name"]),
-                ("Code:",    p["code"]),
-                ("Price:",   f"${p['price']:.2f}"),
-                ("Tax:",     f"${tax:.2f}"),
-                ("TOTAL:",   f"${total:.2f}"),
-            ]:
+            for label, val in [("Product:", p["name"]), ("Code:", p["code"]),
+                                ("Price:", f"${p['price']:.2f}"), ("Tax:", f"${tax:.2f}"),
+                                ("TOTAL:", f"${total:.2f}")]:
                 row = tk.Frame(self.summary_frame, bg=BG_PANEL)
                 row.pack(fill="x", padx=10, pady=1)
                 tk.Label(row, text=label, font=("Courier", 9), fg=TEXT_GRAY,
                          bg=BG_PANEL, width=10, anchor="w").pack(side="left")
+                # Highlight the TOTAL row in orange
                 tk.Label(row, text=val,
                          font=("Courier", 9, "bold" if label == "TOTAL:" else "normal"),
                          fg=ACCENT2 if label == "TOTAL:" else TEXT_WHITE,
                          bg=BG_PANEL).pack(side="left")
 
     def _refresh_payment(self):
+        """Shows the cash input or card input field based on the selected payment method."""
         if self.payment.get() == "cash":
             self.cash_frame.pack(fill="x", pady=(0, 8))
             self.card_frame.pack_forget()
@@ -280,208 +283,219 @@ class RecordSaleScreen(tk.Frame):
             self.cash_frame.pack_forget()
 
     def _select(self, prod):
+        """Handles product tile click — sets selected product and refreshes summary."""
         self.selected = prod
-        self.receipt_label.configure(text="")
+        self.receipt_label.configure(text="")  # Clear any previous receipt
         self._refresh_summary()
 
     def _process_sale(self):
+        """Validates payment and processes the sale. Generates a receipt on success.
+        For cash: checks sufficient funds and calculates change.
+        For card: validates last 4 digits of card number."""
         if not self.selected:
             messagebox.showwarning("No Selection", "Please select a product first.")
             return
+
         p = self.selected
         tax   = round(p["price"] * 0.095, 2)
         total = round(p["price"] + tax, 2)
 
         if self.payment.get() == "cash":
             given = self.cash_given.get()
+            # Reject payment if cash given is less than total due
             if given < total:
-                messagebox.showerror("Insufficient Funds",
-                                     f"Cash given ${given:.2f} is less than total ${total:.2f}.")
+                messagebox.showerror("Insufficient Funds", f"Cash ${given:.2f} < total ${total:.2f}.")
                 return
             change = round(given - total, 2)
             receipt_extra = f"Cash Given:  ${given:.2f}\nChange:      ${change:.2f}"
         else:
             last4 = self.card_entry.get().strip()
+            # Validate that exactly 4 numeric digits were entered
             if not last4.isdigit() or len(last4) != 4:
-                messagebox.showerror("Card Error", "Enter valid last 4 digits of card.")
+                messagebox.showerror("Card Error", "Enter valid last 4 digits.")
                 return
             receipt_extra = f"Card:        xxxx-{last4}\nCard Fee:    $0.00"
 
-        # Deduct stock
+        # Deduct one unit from the product's stock after successful payment
         p["count"] -= 1
 
+        # Generate unique transaction number using current timestamp
         sale_num = f"TXN-{datetime.now().strftime('%H%M%S')}"
-        receipt = (
-            f"✅ SALE APPROVED\n"
-            f"{'─'*32}\n"
+
+        # Display the formatted receipt in the receipt label
+        self.receipt_label.configure(text=(
+            f"✅ SALE APPROVED\n{'─'*32}\n"
             f"Sale #:      {sale_num}\n"
             f"Product:     {p['name']} ({p['code']})\n"
             f"Price:       ${p['price']:.2f}\n"
             f"Tax:         ${tax:.2f}\n"
             f"Total:       ${total:.2f}\n"
-            f"{receipt_extra}\n"
-            f"{'─'*32}\n"
-            f"Time: {datetime.now().strftime('%H:%M:%S')}\n"
-            f"Thank you!"
-        )
-        self.receipt_label.configure(text=receipt)
+            f"{receipt_extra}\n{'─'*32}\n"
+            f"Time: {datetime.now().strftime('%H:%M:%S')}\nThank you!"
+        ))
+
+        # Reset selection after successful sale
         self.selected = None
         self._refresh_summary()
 
 
 # ═══════════════════════════════════════════════════════════════
+# Use Case 2: Update Inventory Screen
+# Allows a restocker (service worker) to view current stock levels
+# for all machine slots and add quantities to restock them
+# ═══════════════════════════════════════════════════════════════
 class UpdateInventoryScreen(tk.Frame):
-    """Use Case 2 – Update Inventory"""
-
     def __init__(self, master):
         super().__init__(master, bg=BG_DARK)
-        self.restock_vars = {}
+        self.restock_vars = {}  # Stores IntVar for each slot's "Add Qty" input
         self._build()
 
     def _build(self):
+        """Builds all sections of the inventory screen in order."""
         self._header()
         self._worker_bar()
         self._table()
         self._footer()
 
     def _header(self):
+        """Builds the top navigation bar with Back button, title, and machine ID."""
         hdr = tk.Frame(self, bg=BG_PANEL)
         hdr.pack(fill="x")
-        tk.Button(hdr, text="← Back", font=("Courier", 10),
-                  bg=BG_PANEL, fg=TEXT_GRAY, bd=0, cursor="hand2",
-                  command=self.master.show_home).pack(side="left", padx=14, pady=14)
-        tk.Label(hdr, text="📦  UPDATE INVENTORY",
-                 font=("Courier", 16, "bold"), fg=ACCENT, bg=BG_PANEL
-                 ).pack(side="left", padx=4, pady=14)
-        tk.Label(hdr, text=f"Machine: VM-001",
-                 font=("Courier", 10), fg=TEXT_GRAY, bg=BG_PANEL
-                 ).pack(side="right", padx=20)
+        tk.Button(hdr, text="← Back", font=("Courier", 10), bg=BG_PANEL, fg=TEXT_GRAY,
+                  bd=0, cursor="hand2", command=self.master.show_home).pack(side="left", padx=14, pady=14)
+        tk.Label(hdr, text="📦  UPDATE INVENTORY", font=("Courier", 16, "bold"),
+                 fg=ACCENT, bg=BG_PANEL).pack(side="left", padx=4, pady=14)
+        tk.Label(hdr, text="Machine: VM-001", font=("Courier", 10),
+                 fg=TEXT_GRAY, bg=BG_PANEL).pack(side="right", padx=20)
 
     def _worker_bar(self):
+        """Displays the logged-in restocker ID and current date/time."""
         bar = tk.Frame(self, bg=BG_CARD, height=36)
         bar.pack(fill="x")
         bar.pack_propagate(False)
-        tk.Label(bar, text=f"👷 Restocker: {WORKER_ID}   |   "
-                            f"Date: {datetime.now().strftime('%Y-%m-%d %H:%M')}",
-                 font=("Courier", 10), fg=ACCENT2, bg=BG_CARD
-                 ).pack(side="left", padx=16, pady=8)
+        tk.Label(bar, text=f"👷 Restocker: {WORKER_ID}   |   Date: {datetime.now().strftime('%Y-%m-%d %H:%M')}",
+                 font=("Courier", 10), fg=ACCENT2, bg=BG_CARD).pack(side="left", padx=16, pady=8)
 
     def _table(self):
+        """Builds the inventory table with a header row and one row per product slot."""
         container = tk.Frame(self, bg=BG_DARK)
         container.pack(fill="both", expand=True, padx=16, pady=10)
 
-        # Column headers
-        headers = ["Slot", "Product Name", "Current", "Max", "Add Qty", "Status"]
-        widths   = [6, 20, 9, 6, 9, 10]
+        # Column header row
         hdr_row = tk.Frame(container, bg=BG_CARD, height=32)
         hdr_row.pack(fill="x")
         hdr_row.pack_propagate(False)
-        for h, w in zip(headers, widths):
+        for h, w in zip(["Slot", "Product Name", "Current", "Max", "Add Qty", "Status"],
+                         [6,      20,              9,         6,     9,          10]):
             tk.Label(hdr_row, text=h, font=("Courier", 9, "bold"),
-                     fg=ACCENT2, bg=BG_CARD, width=w, anchor="w"
-                     ).pack(side="left", padx=6, pady=6)
+                     fg=ACCENT2, bg=BG_CARD, width=w, anchor="w").pack(side="left", padx=6, pady=6)
 
-        # Scrollable rows
-        canvas = tk.Canvas(container, bg=BG_DARK, highlightthickness=0)
-        scrollbar = ttk.Scrollbar(container, orient="vertical", command=canvas.yview)
-        scroll_frame = tk.Frame(canvas, bg=BG_DARK)
-        scroll_frame.bind("<Configure>",
-                          lambda e: canvas.configure(scrollregion=canvas.bbox("all")))
-        canvas.create_window((0, 0), window=scroll_frame, anchor="nw")
-        canvas.configure(yscrollcommand=scrollbar.set)
-        canvas.pack(side="left", fill="both", expand=True)
-        scrollbar.pack(side="right", fill="y")
-
+        # Render one data row per product using plain frames (no canvas/scrollbar)
         for i, p in enumerate(PRODUCTS):
-            self._table_row(scroll_frame, p, i)
+            self._table_row(container, p, i)
 
     def _table_row(self, parent, p, idx):
+        """Creates a single inventory row showing slot info and a quantity input field.
+        Alternates row background for readability. Status is color-coded:
+        GREEN = OK (>40% full), ORANGE = LOW (>0%), RED = EMPTY (0 count)."""
+        # Alternate row background color for readability
         bg = BG_PANEL if idx % 2 == 0 else BG_DARK
+
+        # Calculate fill percentage to determine status label and color
         pct = p["count"] / p["max"]
         status_color = GREEN if pct > 0.4 else (ACCENT2 if pct > 0 else RED)
         status_text  = "OK" if pct > 0.4 else ("LOW" if pct > 0 else "EMPTY")
 
-        row = tk.Frame(parent, bg=bg, height=40)
+        row = tk.Frame(parent, bg=bg, height=36)
         row.pack(fill="x")
         row.pack_propagate(False)
 
-        # Bar background inside row
-        bar_w = int(pct * 60)
-        if bar_w > 0:
-            bar = tk.Frame(row, bg=status_color, width=bar_w, height=2)
-            bar.place(x=0, y=38)
-
-        data = [p["code"], p["name"], str(p["count"]), str(p["max"])]
-        widths = [6, 20, 9, 6]
-        for val, w in zip(data, widths):
+        # Display slot code, product name, current count, and max capacity
+        for val, w in zip([p["code"], p["name"], str(p["count"]), str(p["max"])],
+                           [6,         20,         9,               6]):
             tk.Label(row, text=val, font=("Courier", 10),
-                     fg=TEXT_WHITE, bg=bg, width=w, anchor="w"
-                     ).pack(side="left", padx=6)
+                     fg=TEXT_WHITE, bg=bg, width=w, anchor="w").pack(side="left", padx=6)
 
-        # Qty entry
+        # Integer input field for how many units the restocker wants to add
         var = tk.IntVar(value=0)
-        self.restock_vars[p["code"]] = var
-        entry = tk.Entry(row, textvariable=var, font=("Courier", 10),
-                         bg=BG_CARD, fg=TEXT_WHITE, insertbackground=TEXT_WHITE,
-                         bd=0, width=5)
-        entry.pack(side="left", padx=6, ipady=3)
+        self.restock_vars[p["code"]] = var  # Store reference for later retrieval
+        tk.Entry(row, textvariable=var, font=("Courier", 10),
+                 bg=BG_CARD, fg=TEXT_WHITE, insertbackground=TEXT_WHITE,
+                 bd=0, width=5).pack(side="left", padx=6, ipady=3)
 
+        # Color-coded status label
         tk.Label(row, text=status_text, font=("Courier", 9, "bold"),
-                 fg=status_color, bg=bg, width=10, anchor="w"
-                 ).pack(side="left", padx=6)
+                 fg=status_color, bg=bg, width=10, anchor="w").pack(side="left", padx=6)
 
     def _footer(self):
+        """Builds the bottom bar with the Apply Restock button and status message label."""
         footer = tk.Frame(self, bg=BG_PANEL, height=60)
         footer.pack(fill="x", side="bottom")
         footer.pack_propagate(False)
 
-        tk.Button(footer, text="APPLY RESTOCK ▶",
-                  font=("Courier", 12, "bold"),
+        # Apply Restock button — triggers validation and inventory update
+        tk.Button(footer, text="APPLY RESTOCK ▶", font=("Courier", 12, "bold"),
                   bg=ACCENT, fg=TEXT_WHITE, bd=0, cursor="hand2",
                   activebackground=BTN_HOVER, padx=20,
-                  command=self._apply_restock
-                  ).pack(side="right", padx=20, pady=12)
+                  command=self._apply_restock).pack(side="right", padx=20, pady=12)
 
+        # Status label — shows success message or stays blank
         self.status_label = tk.Label(footer, text="", font=("Courier", 10),
                                      fg=GREEN, bg=BG_PANEL)
         self.status_label.pack(side="left", padx=20, pady=12)
 
     def _apply_restock(self):
-        updated = []
-        errors  = []
+        """Validates all Add Qty inputs and applies restock to matching slots.
+        Rejects negative quantities and quantities that exceed slot maximum.
+        Logs a unique restock ID on success and refreshes the inventory table."""
+        updated = []  # Tracks successfully restocked slot codes
+        errors  = []  # Tracks validation error messages
+
         for p in PRODUCTS:
-            add = self.restock_vars[p["code"]].get()
+            add = self.restock_vars[p["code"]].get()  # Get quantity to add for this slot
+
+            # Skip slots with no quantity entered
+            if add == 0:
+                continue
+
+            # Reject negative input
             if add < 0:
                 errors.append(f"{p['code']}: negative quantity")
                 continue
-            if add == 0:
-                continue
+
+            # Reject if new total would exceed the slot's maximum capacity
             new_count = p["count"] + add
             if new_count > p["max"]:
                 errors.append(f"{p['code']}: exceeds max ({p['max']})")
                 continue
+
+            # Apply the restock and reset the input field
             p["count"] = new_count
-            updated.append(f"{p['code']} → {new_count}/{p['max']}")
+            updated.append(p["code"])
             self.restock_vars[p["code"]].set(0)
 
+        # Show errors if any validation failed
         if errors:
             messagebox.showerror("Restock Errors", "\n".join(errors))
             return
 
+        # Inform user if no quantities were entered
         if not updated:
             self.status_label.configure(text="No changes made.", fg=TEXT_GRAY)
             return
 
+        # Generate unique restock log ID using current timestamp
         log_id = f"RST-{datetime.now().strftime('%H%M%S')}"
         self.status_label.configure(
-            text=f"✅ Restock {log_id} applied: {len(updated)} slot(s) updated.", fg=GREEN)
+            text=f"✅ Restock {log_id}: {len(updated)} slot(s) updated.", fg=GREEN)
 
-        # Refresh table
+        # Refresh the inventory screen to reflect updated counts
         self.destroy()
         self.master.show_inventory()
 
 
-# ═══════════════════════════════════════════════════════════════
+# ── App entry point ─────────────────────────────────────────────
+# Only runs when this file is executed directly (not imported)
 if __name__ == "__main__":
     app = VendingMachineApp()
     app.mainloop()
