@@ -389,7 +389,8 @@ class UpdateInventoryScreen(tk.Frame):
                           lambda e: canvas.configure(scrollregion=canvas.bbox("all")))
         canvas.create_window((0, 0), window=scroll_frame, anchor="nw")
         canvas.configure(yscrollcommand=scrollbar.set)
-        canvas.pack(side="left", fill="both", expand=True)
+        canvas.pack(side="left", fill="both", expand=True, pady=2)
+        canvas.configure(height=480)
         scrollbar.pack(side="right", fill="y")
 
         for i, p in enumerate(PRODUCTS):
