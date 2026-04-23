@@ -381,20 +381,9 @@ class UpdateInventoryScreen(tk.Frame):
                      fg=ACCENT2, bg=BG_CARD, width=w, anchor="w"
                      ).pack(side="left", padx=6, pady=6)
 
-        # Scrollable rows
-        canvas = tk.Canvas(container, bg=BG_DARK, highlightthickness=0)
-        scrollbar = ttk.Scrollbar(container, orient="vertical", command=canvas.yview)
-        scroll_frame = tk.Frame(canvas, bg=BG_DARK)
-        scroll_frame.bind("<Configure>",
-                          lambda e: canvas.configure(scrollregion=canvas.bbox("all")))
-        canvas.create_window((0, 0), window=scroll_frame, anchor="nw")
-        canvas.configure(yscrollcommand=scrollbar.set)
-        canvas.pack(side="left", fill="both", expand=True, pady=2)
-        canvas.configure(height=480)
-        scrollbar.pack(side="right", fill="y")
-
+        # Simple frame rows (no canvas)
         for i, p in enumerate(PRODUCTS):
-            self._table_row(scroll_frame, p, i)
+            self._table_row(container, p, i)
 
     def _table_row(self, parent, p, idx):
         bg = BG_PANEL if idx % 2 == 0 else BG_DARK
