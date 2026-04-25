@@ -8,23 +8,37 @@ from typing import TYPE_CHECKING
 from typing import List
 
 if TYPE_CHECKING:      # This if statement is needed at the top of each file to avoid circular imports made by type hinting. Put all imported classes for type hinting within this if statement
-    from technician import technician
-    from restocker import restocker
+    from serviceWorker import serviceWorker
     from transaction import transaction
     from product import product
     from maintenanceRequest import maintenanceRequest
+    from cardSale import cardSale
+    from cashSale import cashSale
     from coin import coin
     from bill import bill
 
 # actual imports
+import mysql.connector
 import datetime
+
+## setting up db cursor
+machDB = mysql.connector.connect(
+    host="localhost",
+    user="interface",
+    password="password",
+    database = "vendingmachine"
+)
+cursor = machDB.cursor()
 
 # handles the tracking of when maintenance requests are sent, via the service date aproaching or the machine having a malfunction
 # also connects classes
 class machine:
     # basic contructor. takes in basic info about machine. also sets up all links to other classes
-    def __init__(self, addressIn: str, modelNumIn: str, maxSlotsIn: int, lastServicedIn: datetime, currStateIn: str, daysBetweenSerIn: int, techIn: List[technician], restockersIn: List[restocker], requestsIn: List[maintenanceRequest], transactionsIn: List[transaction], productsIn: List[product]) -> None:
+    # *Doesnt make a new entry in assigned db table, only inits a class with this data. ID is assumed to correlate to a value inside the db table*
+    def __init__(self, machIDIn: int, addressIn: str, modelNumIn: str, maxSlotsIn: int, lastServicedIn: str, currStateIn: str, daysBetweenSerIn: int) -> None:
         ## basic attributes
+        # stores database ID for machine
+        self.machID: int = machIDIn
         # stores the full address of the machine
         self.address: str = addressIn
         # stores the model number of the machine
@@ -34,26 +48,15 @@ class machine:
         # stores the current operational state of the machine
         self.currentState: str = currStateIn
         # stores the date that the machine was last serviced
-        self.dateLastServiced: datetime = lastServicedIn
+        self.dateLastServiced: str = lastServicedIn
         # stores the days between each machine service
         self.daysbetweenServices: int = daysBetweenSerIn
 
-        ## other class instances
-        # the list of technicians assigned to this machine
-        self.technicians: List[technician] = techIn
-        # the list of restockers assigned to this machine
-        self.restockers: List[restocker] = restockersIn
-        # the list of made maintenance requests for this machine
-        self.requests: List[maintenanceRequest] = requestsIn
-        # the list of made transactions at this machine
-        self.transactions: List[transaction] = transactionsIn
-        # the list of products in this machine
-        self.products: List[product] = productsIn
-
     ## Use case functions
+    # TODO : Update to work with new code
     # function called when a machine malfunction is detected. this creates a new maintenanceRequest for one of the machines assigned technicians
     # currently assigns to the technician with the least current requests
-    def malfunctionDetected(self, techAssigned: technician) -> None:
+    def malfunctionDetected(self, techAssigned: serviceWorker) -> None:
         #Initializing the values to find the technician with the least requests
         currentMin = len(self.technicians[i].returnRequest())
         minInd = 0
@@ -70,9 +73,10 @@ class machine:
         self.requests.append(newReq)
     
     # function called to check scheduled service date. if service date has been reached, a new maintenanceRequest is made for a technician
+    # TODO : Update to work with new code
     # this should be ran at the beginning of each day
     # checks and assigns technician similar to the above function
-    def checkServiceDate(self, techAssigned: technician) -> None:
+    def checkServiceDate(self, techAssigned: serviceWorker) -> None:
         
         currentDate = datetime.now()
         timeSinceLast = int(currentDate - self.dateLastServiced)
@@ -95,9 +99,11 @@ class machine:
             self.requests.append(newReq)
     
     # functions called to record a transaction, depending on the type
+    # TODO : Update to work with new code
     def recordTransaction(self, productPurchased: product, sale: cardSale) -> None:
         self.transactions.append(sale)
 
+    # TODO : Update to work with new code
     def recordTransaction(self, productPurchased: product, sale: cashSale) -> None:
         self.transactions.append(sale)
         
@@ -114,112 +120,42 @@ class machine:
         return NotImplemented
     
     # "Admin updates machine information" case is handled with the simple update methods below
-
-    ## List methods for technicians
-    # append value
-    def appendTechnician(self, newTech: technician) -> None:
-        self.technicians.append(newTech)
-
-    # replace value at index
-    def replaceTechnician(self, newTech: technician, index: int) -> None:
-        self.technicians[index] = technician
-
-    # return specific value of index
-    def returnTechnician(self, index: int) -> technician:
-        return self.technicians[index]
-    
-    # return whole list
-    def returnTechnicians(self) -> List[technician]:
-        return self.technicians
-
-    ## List methods for restockers
-    # append value
-    def appendRestocker(self, newRestocker: restocker) -> None:
-        self.restockers.append(newRestocker)
-
-    # replace value at index
-    def replaceRestocker(self, newRestocker: restocker, index: int) -> None:
-        self.restockers[index] = newRestocker
-
-    # return specific value of index
-    def returnRestocker(self, index: int) -> restocker:
-        return self.restockers[index]
-
-    # return whole list
-    def returnRestockers(self) -> List[restocker]:
-        return self.restockers
-
-    ## List methods for requests
-    # append value 
-    def appendRequest(self, newRequest: maintenanceRequest) -> None:
-        self.requests.append(newRequest)
-
-    # replace value at index
-    def replaceRequest(self, newRequest: maintenanceRequest, index: int) -> None:
-        self.requests[index] = newRequest
-
-    # return value at index
-    def returnRequest(self, index: int) -> maintenanceRequest:
-        return self.requests[index]
-
-    # return entire list
-    def returnRequests(self) -> List[maintenanceRequest]:
-        return self.requests
-
-    ## List methods for transactions
-    # append value
-    def appendTransaction(self, newTransaction: transaction) -> None:
-        self.transactions.append(newTransaction)
-
-    # replace value at index
-    def replaceTransaction(self, newTransaction: transaction, index: int) -> None:
-        self.transactions[index] = newTransaction
-
-    # return specific value of index
-    def returnTransaction(self, index: int) -> transaction:
-        return self.transactions[index]
-
-    # return whole list
-    def returnTransactions(self, index: int) -> List[transaction]:
-        return self.transactions
-
-    ## List methods for products
-    # append value
-    def appendProduct(self, newProduct: product) -> None:
-        self.products.append(newProduct)
-
-    # replace value at index
-    def replaceProduct(self, newProduct: product, index: int) -> None:
-        self.products[index] = newProduct
-
-    # return specific value of index
-    def returnProduct(self, index: int) -> product:
-        return self.products[index]
-
-    # return whole list
-    def returnProducts(self) -> List[product]:
-        return self.products
-
     ## simple update methods
     def updateAddress(self, newAddress: str) -> None:
         self.address = newAddress
+        cursor.execute("UPDATE `machine` SET address = \"" + str(newAddress) + "\" WHERE machineID = \"" + str(self.machID) + "\"")
+        machDB.commit()
     
     def updateModelNumber(self, newModelNum: str) -> None:
         self.modelNumber = newModelNum
+        cursor.execute("UPDATE `machine` SET modelNumber = \"" + str(newModelNum) + "\" WHERE machineID = \"" + str(self.machID) + "\"")
+        machDB.commit()
 
     def updateMaxProductSlots(self, newMaxSlots: int) -> None:
         self.maxProductSlots = newMaxSlots
+        cursor.execute("UPDATE `machine` SET maxproductslots = \"" + str(newMaxSlots) + "\" WHERE machineID = \"" + str(self.machID) + "\"")
+        machDB.commit()
 
     def updateCurrentState(self, newState: str) -> None:
         self.currentState = newState
+        cursor.execute("UPDATE `machine` SET currentstate = \"" + str(newState) + "\" WHERE machineID = \"" + str(self.machID) + "\"")
+        machDB.commit()
     
-    def updateDateLastServiced(self, newLastServiced: datetime) -> None:
+    def updateDateLastServiced(self, newLastServiced: str) -> None:
         self.dateLastServiced = newLastServiced
+        cursor.execute("UPDATE `machine` SET datelastserviced = STR_TO_DATE(\"" + newLastServiced + "\",\"%m,%d,%Y\") WHERE machineID = " + str(self.machID))
+        machDB.commit()
+        
 
     def updateDaysBetweenServices(self, newDaysBetween: int) -> None:
         self.daysbetweenServices = newDaysBetween
+        cursor.execute("UPDATE `machine` SET daysbetweenservices = \"" + str(newDaysBetween) + "\" WHERE machineID = \"" + str(self.machID) + "\"")
+        machDB.commit()
 
     ## simple return methods
+    def returnMachineID(self) -> int:
+        return self.machID
+
     def returnAddress(self) -> str:
         return self.address
     
@@ -229,11 +165,10 @@ class machine:
     def returnMaxProductSlots(self) -> int:
         return self.maxProductSlots
     
-
     def returnCurrentState(self) -> str:
         return self.currentState
     
-    def returnDateLastServiced(self) -> datetime:
+    def returnDateLastServiced(self) -> str:
         return self.dateLastServiced
     
     def returnDaysBetweenServices(self) -> int:

@@ -7,9 +7,9 @@
 INSERT IGNORE INTO Machine VALUES(1, "1234 Oak Ave Springfield, IL 62704", "3756-B", "Operational", STR_TO_DATE('9-22-2025','%m-%d-%Y'), 180, 10);
 
 -- serviceworker data
-INSERT IGNORE INTO ServiceWorker VALUES(1, 1, "John Doe", "555-555-5555", "JohnDoe@gmail.com", "Repair Works Inc");
-INSERT IGNORE INTO ServiceWorker VALUES(2, 1, "Jane Doe", "123-456-7890", "JaneDoe@hotmail.com", "Venders United");
-INSERT IGNORE INTO ServiceWorker VALUES(3, 1, "Fred Nerks", "000-000-0000", "FredNerks@yahoo.com", "Repair Works Inc");
+INSERT IGNORE INTO ServiceWorker VALUES(1, 1, "John Doe", "Technician", "555-555-5555", "JohnDoe@gmail.com", "Repair Works Inc");
+INSERT IGNORE INTO ServiceWorker VALUES(2, 1, "Jane Doe", "Restocker", "123-456-7890", "JaneDoe@hotmail.com", "Venders United");
+INSERT IGNORE INTO ServiceWorker VALUES(3, 1, "Fred Nerks", "Technician", "000-000-0000", "FredNerks@yahoo.com", "Repair Works Inc");
 
 -- product data
 INSERT IGNORE INTO Product VALUES(1, 1, "Cheetos", "bagged puff chips. cheddar cheese flavored. orange packaging.", 
@@ -37,7 +37,7 @@ INSERT IGNORE INTO `Transaction` VALUES(4, 1, 1, .33, STR_TO_DATE('3-30-2026','%
 -- maintenancerequest data
 INSERT IGNORE INTO MaintenanceRequest VALUES(1, 1, 3, STR_TO_DATE('3-20-2025','%m-%d-%Y'), STR_TO_DATE('3 21 2025','%m %d %Y'), "Error in Button Module");
 INSERT IGNORE INTO MaintenanceRequest VALUES(2, 1, 1, STR_TO_DATE('3-25-2026','%m-%d-%Y'), STR_TO_DATE('3-26-2026','%m-%d-%Y'), "Error in Lighting Module");
-INSERT IGNORE INTO MaintenanceRequest VALUES(3, 1, 2, STR_TO_DATE('3-21-2026','%m-%d-%Y'), null, "Auto-Scheduled Servicing"); -- null dateresolved because not resolved yet
+INSERT IGNORE INTO MaintenanceRequest VALUES(3, 1, 1, STR_TO_DATE('3-21-2026','%m-%d-%Y'), null, "Auto-Scheduled Servicing"); -- null dateresolved because not resolved yet
 
 -- currency data
 INSERT IGNORE INTO Currency VALUES(1, 1, 35, 50, .01); -- penny
@@ -45,9 +45,9 @@ INSERT IGNORE INTO Currency VALUES(2, 1, 80, null, 1.0); -- null currentamount b
 INSERT IGNORE INTO Currency VALUES(3, 1, 35, 60, 1.0);	-- 1 dollar coin
 
 -- restockrequest data
-INSERT IGNORE INTO RestockRequest VALUES(1, 3, 1, STR_TO_DATE('3-20-2025','%m-%d-%Y'), STR_TO_DATE('3 21 2025','%m %d %Y'), "Restock request in \"MoneyHandler\" : \"$.01\" coins below restock threshold.");
+INSERT IGNORE INTO RestockRequest VALUES(1, 2, 1, STR_TO_DATE('3-20-2025','%m-%d-%Y'), STR_TO_DATE('3 21 2025','%m %d %Y'), "Restock request in \"MoneyHandler\" : \"$.01\" coins below restock threshold.");
 INSERT IGNORE INTO RestockRequest VALUES(2, 2, 1, STR_TO_DATE('3-25-2026','%m-%d-%Y'), null, "Restock request in \"MoneyHandler\" : \"$1\" dollar bills above restock threshold."); -- null dateresolved because not resolved yet
-INSERT IGNORE INTO RestockRequest VALUES(3, 1, null, STR_TO_DATE('3-30-2026','%m-%d-%Y'), null, "Restock request in \"MachineSlot\" : Slot \"2B\" Product \"Cheetos\" below restock threshold."); -- null moneyhandlerID because not a money restock
+INSERT IGNORE INTO RestockRequest VALUES(3, 2, null, STR_TO_DATE('3-30-2026','%m-%d-%Y'), null, "Restock request in \"MachineSlot\" : Slot \"2B\" Product \"Cheetos\" below restock threshold."); -- null moneyhandlerID because not a money restock
 INSERT IGNORE INTO RestockRequest VALUES(4, 2, null, STR_TO_DATE('3-30-2026','%m-%d-%Y'), null, "Restock request in \"MachineSlot\" : Slot \"2B\" Product \"Cheetos\" at position 2 expired.");
 
 -- machineslot data

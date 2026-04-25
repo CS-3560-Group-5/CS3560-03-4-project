@@ -1,16 +1,14 @@
-import mysql.connector
+# main
+# 4/19/2026
+from allClasses import allClasses
+from machine import machine
 
-machDB = mysql.connector.connect(
-    host="localhost",
-    user="interface",
-    password="password",
-    database = "vendingmachine"
-)
+classes = allClasses()
+cardSaleList = classes.returnCardSaleList()
+cashSaleList = classes.returnCashSaleList()
+machineList = classes.returnMachineList()
+productList = classes.returnProductList()
 
-cursor = machDB.cursor()
+classes.deleteAll()
 
-cursor.execute("SELECT * FROM product")
-
-result = cursor.fetchall()
-
-print(result)
+classes.addProduct(machine(1,"1","1",1,"1,1,2000","a",1), "a", "a", "a", "A", 1)

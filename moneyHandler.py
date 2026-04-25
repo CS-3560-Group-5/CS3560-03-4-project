@@ -4,19 +4,32 @@
 # type hint imports
 from __future__ import annotations
 from typing import TYPE_CHECKING
-from typing import List
 
 if TYPE_CHECKING:
-    from coin import coin
-    from bill import bill
-    from restockRequest import restockRequest
+    from machine import machine
 
-# actual imports
+# actual import
+import mysql.connector
+
+
+## setting up db cursor
+machDB = mysql.connector.connect(
+    host="localhost",
+    user="interface",
+    password="password",
+    database = "vendingmachine"
+)
+cursor = machDB.cursor()
 
 # this class handles all the the money in a vending machine
 class moneyHandler:
     # init function for all values
-    def __init__(self, billMaxThreshIn: float, billMaxAmtIn: int, coinMinThreshIn: float, coinMaxThreshIn: float, coinsIn: List[coin], billsIn: List[bill], requestsIn: List[restockRequest]) -> None:
+    # *Doesnt make a new entry in assigned db table, only inits a class with this data. ID is assumed to correlate to a value inside the db table*
+    def __init__(self, selfID: int, machineIn: machine, billMaxThreshIn: float, billMaxAmtIn: int, coinMaxThreshIn: float, coinMinThreshIn: float) -> None:
+        # this handlers ID
+        self.moneyHandlerID: int = selfID
+        # assigned machine
+        self.assignedMachine: machine = machineIn
         # holds the max threshold for a bill restock. this should be a percentage, which is used to calculate the bounds dynamically from billMax
         # there is no min threshold for a bill restock because change is given in coins only. there can be no bills in the machine and it can still operate with the correct change.
         self.billRestockMaxThreshold: float = billMaxThreshIn
@@ -26,23 +39,6 @@ class moneyHandler:
         self.coinRestockMinThreshold: float = coinMinThreshIn
         # holds the max threshhold for a coin restock. this should be a percentage, which is used to calculate the bounds dynamically from a coins coinMax
         self.coinRestockMaxThreshold: float = coinMaxThreshIn
-        # init list of coins with given array
-        self.coins: List[coin] = coinsIn
-        # init list of bills with given array
-        self.bills: List[bill] = billsIn
-        # init list of restock requests
-        self.requests: List[restockRequest] = requestsIn
-
-    # init function for all values minus all arrays
-    def __init__(self, billMaxThreshIn: float, billMaxAmtIn: int, coinMinThreshIn: float, coinMaxThreshIn: float) -> None:
-        self.billRestockMaxThreshold: float = billMaxThreshIn
-        self.billMaxAmount: int = billMaxAmtIn
-        self.coinRestockMinThreshold: float = coinMinThreshIn
-        self.coinRestockMaxThreshold: float = coinMaxThreshIn
-        # init all lists to empty
-        self.coins: List[coin] = []
-        self.bills: List[bill] = []
-        self.requests: List[restockRequest] = []
 
     ## use case functions
     # function to check if the bill storage has reached its capacity. If so, it makes a new restock request
@@ -63,67 +59,32 @@ class moneyHandler:
         # TODO : implement
         return NotImplemented
 
-    ## update and return methods for lists
-    # append value to coins
-    def appendCoin(self, newCoin: coin) -> None:
-        self.coins.append(newCoin)
-
-    # replace value at index in coins with coin
-    def replaceCoin(self, newCoin: coin, index: int) -> None:
-        self.coins[index] = newCoin
-
-    # return value from coin list at index
-    def returnCoin(self, index: int) -> coin:
-        return self.coins[index]
-
-    # return entire coin list
-    def returnCoins(self) -> List[coin]:
-        return self.coins
-
-    # append value to bills
-    def appendCoin(self, newBill: bill) -> None:
-        self.bills.append(newBill)
-
-    # replace value at index in bills with bill
-    def replaceBill(self, newBill: bill, index: int) -> None:
-        self.bills[index] = newBill
-
-    # return value from coin list at index
-    def returnBill(self, index: int) -> bill:
-        return self.bills[index]
-    
-    # return entire bill list
-    def returnBills(self) -> List[bill]:
-        return self.bills
-    
-    # append value to requests
-    def appendRequest(self, newRequest: restockRequest) -> None:
-        self.requests.append(newRequest)
-
-    # replace value at index in requests with request
-    def replaceRequest(self, newRequest: restockRequest, index: int) -> None:
-        self.requests[index] = newRequest
-
-    # return value from requsts list at index
-    def returnRequest(self, index: int) -> restockRequest:
-        return self.requests[index]
-
-    # return entire requests list
-    def returnRequests(self) -> List[restockRequest]:
-        return self.requests
-
     ## simple update methods [doesnt check for bounds!!]
+
+    def updateAssignedMachine(self, newMachine: machine) -> None:
+        self.assignedMachine = newMachine
+        cursor.execute("UPDATE `moneyhandler` SET machineID = " + str(newMachine.returnMachineID()) + " WHERE moneyHandlerID = " + str(self.moneyHandlerID))
+        machDB.commit()
+
     def updateBillRestockMaxThreshold(self, newMaxThresh: float) -> None:
         self.billRestockMaxThreshold = newMaxThresh
+        cursor.execute("UPDATE `moneyhandler` SET billrestockMaxthreshold = " + str(newMaxThresh) + " WHERE moneyHandlerID = " + str(self.moneyHandlerID))
+        machDB.commit()
 
     def updateBillMaxAmount(self, newBillMax: int) -> None:
         self.billMaxAmount = newBillMax
+        cursor.execute("UPDATE `moneyhandler` SET billmaxamount = " + str(newBillMax) + " WHERE moneyHandlerID = " + str(self.moneyHandlerID))
+        machDB.commit()
 
     def updateCoinRestockMinThreshold(self, newMinThresh: float) -> None:
         self.coinRestockMinThreshold = newMinThresh
+        cursor.execute("UPDATE `moneyhandler` SET coinrestockminthreshold = " + str(newMinThresh) + " WHERE moneyHandlerID = " + str(self.moneyHandlerID))
+        machDB.commit()
 
     def updateCoinRestockMaxThreshold(self, newMaxThresh: float) -> None:
         self.coinRestockMaxThreshold = newMaxThresh
+        cursor.execute("UPDATE `moneyhandler` SET coinrestockmaxthreshold = " + str(newMaxThresh) + " WHERE moneyHandlerID = " + str(self.moneyHandlerID))
+        machDB.commit()
 
     ## simple return methods
     def returnBillRestockMaxThreshold(self) -> float:
@@ -137,6 +98,12 @@ class moneyHandler:
 
     def returnCoinRestockMaxThreshold(self) -> float:
         return self.coinRestockMaxThreshold
+    
+    def returnMoneyHandlerID(self) -> int:
+        return self.moneyHandlerID
+    
+    def returnAssignedMachine(self) -> machine:
+        return self.assignedMachine
 
 
 

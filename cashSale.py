@@ -7,28 +7,45 @@ from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     from transaction import transaction
-    from product import product
+    from machine import machine
 
 # actual imports
+from transaction import transaction
+from product import product
+import mysql.connector
 
+## setting up db cursor
+machDB = mysql.connector.connect(
+    host="localhost",
+    user="interface",
+    password="password",
+    database = "vendingmachine"
+)
+cursor = machDB.cursor()
 
 # class to implement cash transaction recording. inherits transaction class
 class cashSale(transaction):
-
-    def __init__(self, itemIn: product, cashGivenIn: float, changeDisIn: float) -> None:
+    # *Doesnt make a new entry in assigned db table, only inits a class with this data. ID is assumed to correlate to a value inside the db table*
+    def __init__(self, saleNumberIn: int, itemIn: product, machineIn: machine, taxIn: float, saleDateTimeIn: str, cashGivenIn: float) -> None:
         # used to keep track of the money the customer gave to the machine
         self.cashGiven: float = cashGivenIn
         # used to record how much change was given back to the customer
-        self.changeDispensed: float = changeDisIn
+        self.changeDispensed: float = round(cashGivenIn - (itemIn.returnPrice() + taxIn), 2)
         # call inherited init
-        super().__init__(itemIn)
+        super().__init__(saleNumberIn, itemIn, machineIn, taxIn, saleDateTimeIn)
 
     ## simple update methods
     def updateCashGiven(self, newGiven: float) -> None:
         self.cashGiven = newGiven
+        self.changeDispensed = round(newGiven - (self.item.price + self.tax), 2)
+        cursor.execute("UPDATE `Transaction` SET cashgiven = " + str(round(newGiven, 2)) + " WHERE saleNumber = " + str(self.returnSaleNumber()))
+        machDB.commit()
 
-    def updateChangeDispensed(self, newChange: float) -> None:
-        self.changeDispensed = newChange
+    def updateTax(self, newTax: float) -> None:
+        self.tax = newTax
+        self.changeDispensed = round(self.cashGiven - (self.item.price + newTax), 2)
+        cursor.execute("UPDATE `Transaction` SET tax = " + str(round(newTax, 2)) + " WHERE saleNumber = " + str(self.returnSaleNumber()))
+        machDB.commit()
 
     ## simple return methods
     def returnCashGiven(self) -> float:

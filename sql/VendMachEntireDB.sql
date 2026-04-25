@@ -1,9 +1,10 @@
+CREATE DATABASE  IF NOT EXISTS `vendingmachine` /*!40100 DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci */ /*!80016 DEFAULT ENCRYPTION='N' */;
+USE `vendingmachine`;
 -- MySQL dump 10.13  Distrib 8.0.45, for Win64 (x86_64)
 --
 -- Host: 127.0.0.1    Database: vendingmachine
 -- ------------------------------------------------------
 -- Server version	8.0.45
-CREATE DATABASE IF NOT EXISTS `VendingMachine`;
 
 /*!40101 SET @OLD_CHARACTER_SET_CLIENT=@@CHARACTER_SET_CLIENT */;
 /*!40101 SET @OLD_CHARACTER_SET_RESULTS=@@CHARACTER_SET_RESULTS */;
@@ -114,13 +115,13 @@ DROP TABLE IF EXISTS `maintenancerequest`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
 /*!50503 SET character_set_client = utf8mb4 */;
 CREATE TABLE `maintenancerequest` (
-  `MaintencanceRequestID` int unsigned NOT NULL AUTO_INCREMENT,
+  `MaintenanceRequestID` int unsigned NOT NULL AUTO_INCREMENT,
   `MachineID` int unsigned NOT NULL,
   `ServiceWorkerID` int unsigned NOT NULL,
   `DateRequested` date DEFAULT NULL,
   `DateResolved` date DEFAULT NULL,
   `ReasonForRequest` mediumtext,
-  PRIMARY KEY (`MaintencanceRequestID`),
+  PRIMARY KEY (`MaintenanceRequestID`),
   KEY `MachineID` (`MachineID`),
   KEY `ServiceWorkerID` (`ServiceWorkerID`),
   CONSTRAINT `maintenancerequest_ibfk_1` FOREIGN KEY (`MachineID`) REFERENCES `machine` (`MachineID`),
@@ -134,7 +135,7 @@ CREATE TABLE `maintenancerequest` (
 
 LOCK TABLES `maintenancerequest` WRITE;
 /*!40000 ALTER TABLE `maintenancerequest` DISABLE KEYS */;
-INSERT INTO `maintenancerequest` VALUES (1,1,3,'2025-03-20','2025-03-21','Error in Button Module'),(2,1,1,'2026-03-25','2026-03-26','Error in Lighting Module'),(3,1,2,'2026-03-21',NULL,'Auto-Scheduled Servicing');
+INSERT INTO `maintenancerequest` VALUES (1,1,3,'2025-03-20','2025-03-21','Error in Button Module'),(2,1,1,'2026-03-25','2026-03-26','Error in Lighting Module'),(3,1,1,'2026-03-21',NULL,'Auto-Scheduled Servicing');
 /*!40000 ALTER TABLE `maintenancerequest` ENABLE KEYS */;
 UNLOCK TABLES;
 
@@ -259,7 +260,7 @@ CREATE TABLE `restockrequest` (
 
 LOCK TABLES `restockrequest` WRITE;
 /*!40000 ALTER TABLE `restockrequest` DISABLE KEYS */;
-INSERT INTO `restockrequest` VALUES (1,3,1,'2025-03-20','2025-03-21','Restock request in \"MoneyHandler\" : \"$.01\" coins below restock threshold.'),(2,2,1,'2026-03-25',NULL,'Restock request in \"MoneyHandler\" : \"$1\" dollar bills above restock threshold.'),(3,1,NULL,'2026-03-30',NULL,'Restock request in \"MachineSlot\" : Slot \"2B\" Product \"Cheetos\" below restock threshold.'),(4,2,NULL,'2026-03-30',NULL,'Restock request in \"MachineSlot\" : Slot \"2B\" Product \"Cheetos\" at position 2 expired.');
+INSERT INTO `restockrequest` VALUES (1,2,1,'2025-03-20','2025-03-21','Restock request in \"MoneyHandler\" : \"$.01\" coins below restock threshold.'),(2,2,1,'2026-03-25',NULL,'Restock request in \"MoneyHandler\" : \"$1\" dollar bills above restock threshold.'),(3,2,NULL,'2026-03-30',NULL,'Restock request in \"MachineSlot\" : Slot \"2B\" Product \"Cheetos\" below restock threshold.'),(4,2,NULL,'2026-03-30',NULL,'Restock request in \"MachineSlot\" : Slot \"2B\" Product \"Cheetos\" at position 2 expired.');
 /*!40000 ALTER TABLE `restockrequest` ENABLE KEYS */;
 UNLOCK TABLES;
 
@@ -274,6 +275,7 @@ CREATE TABLE `serviceworker` (
   `WorkerID` int unsigned NOT NULL AUTO_INCREMENT,
   `MachineID` int unsigned NOT NULL,
   `Name` varchar(63) DEFAULT NULL,
+  `WorkerType` varchar(63) DEFAULT NULL,
   `PhoneNumber` varchar(31) DEFAULT NULL,
   `Email` varchar(63) DEFAULT NULL,
   `Company` varchar(255) DEFAULT NULL,
@@ -289,7 +291,7 @@ CREATE TABLE `serviceworker` (
 
 LOCK TABLES `serviceworker` WRITE;
 /*!40000 ALTER TABLE `serviceworker` DISABLE KEYS */;
-INSERT INTO `serviceworker` VALUES (1,1,'John Doe','555-555-5555','JohnDoe@gmail.com','Repair Works Inc'),(2,1,'Jane Doe','123-456-7890','JaneDoe@hotmail.com','Venders United'),(3,1,'Fred Nerks','000-000-0000','FredNerks@yahoo.com','Repair Works Inc');
+INSERT INTO `serviceworker` VALUES (1,1,'John Doe','Technician','555-555-5555','JohnDoe@gmail.com','Repair Works Inc'),(2,1,'Jane Doe','Restocker','123-456-7890','JaneDoe@hotmail.com','Venders United'),(3,1,'Fred Nerks','Technician','000-000-0000','FredNerks@yahoo.com','Repair Works Inc');
 /*!40000 ALTER TABLE `serviceworker` ENABLE KEYS */;
 UNLOCK TABLES;
 
@@ -344,4 +346,4 @@ UNLOCK TABLES;
 /*!40101 SET COLLATION_CONNECTION=@OLD_COLLATION_CONNECTION */;
 /*!40111 SET SQL_NOTES=@OLD_SQL_NOTES */;
 
--- Dump completed on 2026-04-18  8:23:45
+-- Dump completed on 2026-04-19 16:07:24

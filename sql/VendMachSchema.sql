@@ -9,6 +9,7 @@ CREATE DATABASE IF NOT EXISTS `VendingMachine`;
 -- create commands for all tables
 -- create in this order : machine, serviceworker, product, moneyhandler, transaction, maintenancerequest, currency, restockrequest, machineslot, perishableitem
 -- Machine table. where general info is stored for the vending machine.
+
 CREATE TABLE IF NOT EXISTS `Machine` (
 	-- private keys
 	`MachineID` INTEGER UNSIGNED NOT NULL AUTO_INCREMENT, -- pk
@@ -31,6 +32,7 @@ CREATE TABLE IF NOT EXISTS `ServiceWorker` (
 	FOREIGN KEY(`MachineID`) REFERENCES `Machine`(`MachineID`),
     -- attributes
     `Name` VARCHAR(63),
+    `WorkerType` VARCHAR(63),
     `PhoneNumber` VARCHAR(31),
     `Email` VARCHAR(63),
     `Company` VARCHAR(255)
@@ -88,8 +90,8 @@ CREATE TABLE IF NOT EXISTS `Transaction` (
 -- MaintenanceRequest Table
 CREATE TABLE IF NOT EXISTS `MaintenanceRequest` (
 	-- private/foreign keys
-	`MaintencanceRequestID` INTEGER UNSIGNED NOT NULL AUTO_INCREMENT, -- pk
-    PRIMARY KEY(`MaintencanceRequestID`),
+	`MaintenanceRequestID` INTEGER UNSIGNED NOT NULL AUTO_INCREMENT, -- pk
+    PRIMARY KEY(`MaintenanceRequestID`),
     `MachineID` INTEGER UNSIGNED NOT NULL, -- fk1
 	`ServiceWorkerID` INTEGER UNSIGNED NOT NULL, -- fk2
 	FOREIGN KEY(`MachineID`) REFERENCES `Machine`(`MachineID`),
