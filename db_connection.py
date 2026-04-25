@@ -7,7 +7,6 @@
 import mysql.connector
 from datetime import datetime
 
-
 # Establishes and returns a connection to the vendingmachine database
 # Uses the 'interface' user as specified in the project README
 def get_connection():

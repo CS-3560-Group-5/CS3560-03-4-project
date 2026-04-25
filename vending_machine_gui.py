@@ -74,10 +74,7 @@ class HomeScreen(tk.Frame):
         tk.Label(hdr, text="🏪  VENDING MACHINE SYSTEM",
                  font=("Courier", 20, "bold"), fg=ACCENT, bg=BG_PANEL
                  ).pack(side="left", padx=24, pady=20)
-        tk.Label(hdr, text=f"Machine ID: VM-001  |  {datetime.now().strftime('%Y-%m-%d')}",
-                 font=("Courier", 10), fg=TEXT_GRAY, bg=BG_PANEL
-                 ).pack(side="right", padx=24)
-        
+
         # Update 4/23/2026 - Display machine model from database instead of hardcoded ID
         machine = self.master.machine_info
         if machine:
@@ -138,7 +135,7 @@ class RecordSaleScreen(tk.Frame):
             messagebox.showerror("Database Error", f"Could not load products:\n{e}")
             self.products = []
         #----
-        
+
         self._build()
 
     def _build(self):
@@ -166,7 +163,7 @@ class RecordSaleScreen(tk.Frame):
                  fg=ACCENT, bg=BG_PANEL).pack(side="left", padx=4, pady=14)
 
     def _product_grid(self, parent):
-        """Builds the 4-column product grid showing all 12 machine slots."""
+        """Builds the 4-column product grid showing all machine slots."""
         tk.Label(parent, text="Select Product", font=("Courier", 11, "bold"),
                  fg=TEXT_GRAY, bg=BG_DARK).pack(anchor="w", pady=(4, 6))
         grid_frame = tk.Frame(parent, bg=BG_DARK)
@@ -183,7 +180,6 @@ class RecordSaleScreen(tk.Frame):
     def _product_tile(self, parent, p, row, col):
         """Creates a single product tile showing code, name, price, and stock status.
         Sold-out items are grayed out and non-clickable."""
-        is_empty = p["count"] == 0
         # Update 4/23/2026 - Also checks for empty slots (no product assigned)
         is_empty = p["count"] == 0 or p["name"] == "Empty"
         #----
@@ -337,7 +333,7 @@ class RecordSaleScreen(tk.Frame):
                 return
             receipt_extra = f"Card:        xxxx-{last4}\nCard Fee:    $0.00"
 
-         # Update 4/23/2026 - Record transaction in database and update inventory
+        # Update 4/23/2026 - Record transaction in database and update inventory
         try:
             # Record the transaction in the database
             if self.payment.get() == "cash":
@@ -374,7 +370,9 @@ class RecordSaleScreen(tk.Frame):
         # Display the formatted receipt in the receipt label
         self.receipt_label.configure(text=(
             f"✅ SALE APPROVED\n{'─'*32}\n"
-            f"Sale #:      {sale_num}\n"
+            # Update 4/23/2026 - Sale number now comes from database auto-increment
+            f"Sale #:      TXN-{sale_num}\n"
+            #----
             f"Product:     {p['name']} ({p['code']})\n"
             f"Price:       ${p['price']:.2f}\n"
             f"Tax:         ${tax:.2f}\n"
@@ -423,9 +421,7 @@ class UpdateInventoryScreen(tk.Frame):
                   bd=0, cursor="hand2", command=self.master.show_home).pack(side="left", padx=14, pady=14)
         tk.Label(hdr, text="📦  UPDATE INVENTORY", font=("Courier", 16, "bold"),
                  fg=ACCENT, bg=BG_PANEL).pack(side="left", padx=4, pady=14)
-        tk.Label(hdr, text="Machine: VM-001", font=("Courier", 10),
-                 fg=TEXT_GRAY, bg=BG_PANEL).pack(side="right", padx=20)
-        
+
         # Update 4/23/2026 - Display machine model from database instead of hardcoded VM-001
         machine = self.master.machine_info
         machine_text = f"Machine: {machine['ModelNumber']}" if machine else "Machine: N/A"
@@ -477,7 +473,6 @@ class UpdateInventoryScreen(tk.Frame):
         # Alternate row background color for readability
         bg = BG_PANEL if idx % 2 == 0 else BG_DARK
 
-        # Calculate fill percentage to determine status label and color
         # Update 4/23/2026 - Handle empty slots where max could be 0
         max_amt = p["max"] if p["max"] else 1
         pct = p["count"] / max_amt if max_amt > 0 else 0
@@ -550,7 +545,6 @@ class UpdateInventoryScreen(tk.Frame):
                 errors.append(f"{p['code']}: exceeds max ({p['max']})")
                 continue
 
-            # Apply the restock and reset the input field
             # Update 4/23/2026 - Write restock to database instead of just updating local data
             try:
                 db_connection.update_slot_count(p["code"], new_count)
@@ -570,7 +564,6 @@ class UpdateInventoryScreen(tk.Frame):
             self.status_label.configure(text="No changes made.", fg=TEXT_GRAY)
             return
 
-        # Generate unique restock log ID using current timestamp
         # Update 4/23/2026 - Updated success message to reflect database write
         self.status_label.configure(
             text=f"✅ Restock complete: {len(updated)} slot(s) updated in database.", fg=GREEN)
