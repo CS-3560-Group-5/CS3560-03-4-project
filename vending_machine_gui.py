@@ -2,47 +2,112 @@ import tkinter as tk
 from tkinter import messagebox
 from datetime import datetime
 
-# Update 4/23/2026 - Connect to database
+# Connect to database
 import db_connection
-#----
+# ----
 
 # ── Color palette ──────────────────────────────────────────────
-# Define consistent colors used throughout the UI
-BG_DARK    = "#1a1a2e"  # Main dark background
-BG_PANEL   = "#16213e"  # Slightly lighter panel background
-BG_CARD    = "#0f3460"  # Card/tile background color
-ACCENT     = "#e94560"  # Primary accent color (red-pink) for headers and buttons
-ACCENT2    = "#f5a623"  # Secondary accent color (orange) for prices and highlights
-TEXT_WHITE = "#ffffff"  # Primary text color
-TEXT_GRAY  = "#a0aec0"  # Secondary/muted text color
-GREEN      = "#48bb78"  # Status OK and success messages
-RED        = "#fc8181"  # Status EMPTY and error messages
-BTN_HOVER  = "#c73652"  # Button hover state color
+# Clean, modern light theme — neutral tones with a blue accent
+BG_MAIN    = "#f5f6fa"   # Main background — off-white
+BG_WHITE   = "#ffffff"   # Pure white for cards and panels
+BG_SIDEBAR = "#f0f2f8"   # Slightly tinted background for sidebars/rows
+ACCENT     = "#3b5bdb"   # Primary blue accent — buttons, headers
+ACCENT_HOV = "#2f4ac0"   # Darker blue on hover
+ACCENT_LT  = "#dbe4ff"   # Light blue tint for selected/highlighted states
+TEXT_DARK  = "#1a1a2e"   # Primary text — near black
+TEXT_MID   = "#4a5568"   # Secondary text — medium gray
+TEXT_LIGHT = "#a0aec0"   # Muted/placeholder text
+GREEN      = "#2f9e44"   # Success green
+GREEN_BG   = "#ebfbee"   # Light green background for success banners
+RED        = "#c92a2a"   # Error/sold-out red
+RED_BG     = "#fff5f5"   # Light red background
+ORANGE     = "#e67700"   # Warning orange for LOW status
+ORANGE_BG  = "#fff9db"   # Light orange background
+BORDER     = "#dee2f0"   # Subtle border color for cards and separators
+
+
+# ── Helper: standard labeled input field ───────────────────────
+def labeled_entry(parent, label_text, var=None, height=None, bg=BG_WHITE):
+    """Creates a label + entry pair. If height is given, returns a Text widget."""
+    tk.Label(parent, text=label_text, font=("Segoe UI", 10, "bold"),
+             fg=TEXT_MID, bg=bg).pack(anchor="w", pady=(10, 2))
+    if height:
+        widget = tk.Text(parent, font=("Segoe UI", 10), bg=BG_SIDEBAR,
+                         fg=TEXT_DARK, insertbackground=TEXT_DARK,
+                         relief="flat", bd=0, height=height, wrap="word",
+                         highlightthickness=1, highlightbackground=BORDER,
+                         highlightcolor=ACCENT)
+        widget.pack(fill="x", ipady=6)
+        return widget
+    else:
+        entry = tk.Entry(parent, textvariable=var, font=("Segoe UI", 11),
+                         bg=BG_SIDEBAR, fg=TEXT_DARK, insertbackground=TEXT_DARK,
+                         relief="flat", bd=0,
+                         highlightthickness=1, highlightbackground=BORDER,
+                         highlightcolor=ACCENT)
+        entry.pack(fill="x", ipady=7)
+        return entry
+
+
+# ── Helper: primary action button ──────────────────────────────
+def action_button(parent, text, command):
+    """Creates a styled full-width primary button with hover effect."""
+    btn = tk.Button(parent, text=text, font=("Segoe UI", 11, "bold"),
+                    bg=ACCENT, fg=BG_WHITE, activebackground=ACCENT_HOV,
+                    activeforeground=BG_WHITE, relief="flat", bd=0,
+                    cursor="hand2", pady=11, command=command)
+    btn.pack(fill="x", pady=(16, 0))
+    btn.bind("<Enter>", lambda e: btn.configure(bg=ACCENT_HOV))
+    btn.bind("<Leave>", lambda e: btn.configure(bg=ACCENT))
+    return btn
+
+
+# ── Helper: standard screen header bar ─────────────────────────
+def screen_header(parent, title, back_cmd, machine_info=None):
+    """Builds a consistent white top header bar for all non-home screens."""
+    hdr = tk.Frame(parent, bg=BG_WHITE, height=64)
+    hdr.pack(fill="x")
+    hdr.pack_propagate(False)
+    tk.Frame(parent, bg=BORDER, height=1).pack(fill="x")
+
+    back = tk.Button(hdr, text="←  Back", font=("Segoe UI", 10),
+                     bg=BG_WHITE, fg=ACCENT, activebackground=ACCENT_LT,
+                     activeforeground=ACCENT, relief="flat", bd=0,
+                     cursor="hand2", padx=10, command=back_cmd)
+    back.pack(side="left", padx=16, pady=14)
+
+    tk.Label(hdr, text=title, font=("Segoe UI", 14, "bold"),
+             fg=TEXT_DARK, bg=BG_WHITE).pack(side="left", padx=8, pady=14)
+
+    if machine_info:
+        model = machine_info.get("ModelNumber", "N/A")
+        tk.Label(hdr, text=f"Machine: {model}", font=("Segoe UI", 9),
+                 fg=TEXT_LIGHT, bg=BG_WHITE).pack(side="right", padx=20)
+
 
 # ═══════════════════════════════════════════════════════════════
 # Main application class — manages the window and screen navigation
-# Extends tk.Tk to serve as the root window
 # ═══════════════════════════════════════════════════════════════
 class VendingMachineApp(tk.Tk):
     def __init__(self):
         super().__init__()
         self.title("Vending Machine System")
-        self.geometry("900x680")
-        self.resizable(False, False)  # Fixed window size for consistent layout
-        self.configure(bg=BG_DARK)
-        self.current_frame = None  # Tracks the currently displayed screen
+        self.geometry("940x700")
+        self.resizable(False, False)
+        self.configure(bg=BG_MAIN)
+        self.current_frame = None
 
-        # Update 4/23/2026 - Load machine info from database on startup
+        # Load machine info from the database on startup
         try:
             self.machine_info = db_connection.get_machine_info()
-            self.machine_id = self.machine_info["MachineID"]
+            self.machine_id   = self.machine_info["MachineID"]
         except Exception as e:
             messagebox.showerror("Database Error", f"Could not connect to database:\n{e}")
             self.machine_info = None
-            self.machine_id = 1
-        #----
+            self.machine_id   = 1
+        # ----
 
-        self.show_home()           # Start on the home screen
+        self.show_home()
 
     def switch_frame(self, FrameClass, **kwargs):
         """Destroys the current screen and replaces it with a new one."""
@@ -51,531 +116,1069 @@ class VendingMachineApp(tk.Tk):
         self.current_frame = FrameClass(self, **kwargs)
         self.current_frame.pack(fill="both", expand=True)
 
-    # Navigation methods — called by buttons to switch between screens
-    def show_home(self):        self.switch_frame(HomeScreen)
-    def show_record_sale(self): self.switch_frame(RecordSaleScreen)
-    def show_inventory(self):   self.switch_frame(UpdateInventoryScreen)
+    # Navigation methods — called by buttons throughout the UI
+    def show_home(self):                self.switch_frame(HomeScreen)
+    def show_record_sale(self):         self.switch_frame(RecordSaleScreen)
+    def show_inventory(self):           self.switch_frame(UpdateInventoryScreen)
+    def show_maintenance_request(self): self.switch_frame(MaintenanceRequestScreen)
+    def show_maintenance_tickets(self): self.switch_frame(MaintenanceTicketsScreen)
+    def show_cash_level(self):          self.switch_frame(UpdateCashLevelScreen)
+    def show_machine_info(self):        self.switch_frame(UpdateMachineInfoScreen)
 
 
 # ═══════════════════════════════════════════════════════════════
-# Home Screen — the main menu shown when the app launches
-# Displays two action buttons: Record Sale and Update Inventory
+# Home Screen — main menu with grouped action cards
 # ═══════════════════════════════════════════════════════════════
 class HomeScreen(tk.Frame):
     def __init__(self, master):
-        super().__init__(master, bg=BG_DARK)
+        super().__init__(master, bg=BG_MAIN)
         self._build()
 
     def _build(self):
-        """Builds the header bar and two large navigation buttons."""
-        # Top header bar with machine name and current date
-        hdr = tk.Frame(self, bg=BG_PANEL, height=80)
+        # Top header bar
+        hdr = tk.Frame(self, bg=BG_WHITE, height=72)
         hdr.pack(fill="x")
-        tk.Label(hdr, text="🏪  VENDING MACHINE SYSTEM",
-                 font=("Courier", 20, "bold"), fg=ACCENT, bg=BG_PANEL
-                 ).pack(side="left", padx=24, pady=20)
+        hdr.pack_propagate(False)
+        tk.Frame(self, bg=BORDER, height=1).pack(fill="x")
 
-        # Update 4/23/2026 - Display machine model from database instead of hardcoded ID
-        machine = self.master.machine_info
-        if machine:
-            info_text = f"Machine: {machine['ModelNumber']}  |  {datetime.now().strftime('%Y-%m-%d')}"
-        else:
-            info_text = f"Machine: N/A  |  {datetime.now().strftime('%Y-%m-%d')}"
-        tk.Label(hdr, text=info_text,
-                 font=("Courier", 10), fg=TEXT_GRAY, bg=BG_PANEL
-                 ).pack(side="right", padx=24)
-        #----
+        tk.Label(hdr, text="🏪  Vending Machine System",
+                 font=("Segoe UI", 18, "bold"), fg=TEXT_DARK, bg=BG_WHITE
+                 ).pack(side="left", padx=28, pady=18)
 
-        # Center body with action selection label and buttons
-        body = tk.Frame(self, bg=BG_DARK)
+        machine   = self.master.machine_info
+        info_text = (f"{machine['ModelNumber']}  ·  {datetime.now().strftime('%B %d, %Y')}"
+                     if machine else datetime.now().strftime('%B %d, %Y'))
+        tk.Label(hdr, text=info_text, font=("Segoe UI", 10),
+                 fg=TEXT_LIGHT, bg=BG_WHITE).pack(side="right", padx=28)
+
+        # Body
+        body = tk.Frame(self, bg=BG_MAIN)
         body.pack(expand=True)
-        tk.Label(body, text="Select an Action",
-                 font=("Courier", 16), fg=TEXT_WHITE, bg=BG_DARK
-                 ).pack(pady=(60, 40))
 
-        # Create the two main action buttons
-        self._big_btn(body, "💳  Record Sale",      "Customer purchases a product",   self.master.show_record_sale)
-        tk.Frame(body, height=20, bg=BG_DARK).pack()  # Spacer between buttons
-        self._big_btn(body, "📦  Update Inventory", "Restocker updates machine slots", self.master.show_inventory)
+        tk.Label(body, text="What would you like to do?",
+                 font=("Segoe UI", 13), fg=TEXT_MID, bg=BG_MAIN
+                 ).pack(pady=(32, 18))
 
-    def _big_btn(self, parent, title, subtitle, cmd):
-        """Creates a large clickable card button with title, subtitle, and hover effect."""
-        card = tk.Frame(parent, bg=BG_CARD, cursor="hand2", width=420, height=90)
-        card.pack_propagate(False)
-        card.pack()
-        tk.Label(card, text=title,    font=("Courier", 14, "bold"), fg=TEXT_WHITE, bg=BG_CARD).pack(anchor="w", padx=20, pady=(18, 2))
-        tk.Label(card, text=subtitle, font=("Courier", 10),         fg=TEXT_GRAY,  bg=BG_CARD).pack(anchor="w", padx=20)
+        # Customer section
+        self._section(body, "Customer")
+        self._card(body, "💳", "Record Sale",
+                   "Customer purchases a product",
+                   self.master.show_record_sale)
 
-        # Bind click event to the card and all child labels
-        card.bind("<Button-1>", lambda e: cmd())
-        for w in card.winfo_children():
+        # Restocker section
+        self._section(body, "Restocker")
+        self._card(body, "📦", "Update Inventory",
+                   "View and restock machine slots",
+                   self.master.show_inventory)
+        self._card(body, "💵", "Update Cash Level",
+                   "Collect cash or refill coins",
+                   self.master.show_cash_level)
+
+        # Technician / Admin section
+        self._section(body, "Technician / Admin")
+        self._card(body, "🔧", "Report Maintenance Issue",
+                   "Log a malfunction or request service",
+                   self.master.show_maintenance_request)
+        self._card(body, "✅", "Close Maintenance Ticket",
+                   "Technician marks a repair as complete",
+                   self.master.show_maintenance_tickets)
+        self._card(body, "⚙️", "Machine Information",
+                   "Admin updates the machine profile",
+                   self.master.show_machine_info)
+
+    def _section(self, parent, label):
+        """Small uppercase section label with a horizontal divider line."""
+        row = tk.Frame(parent, bg=BG_MAIN)
+        row.pack(fill="x", padx=60, pady=(14, 4))
+        tk.Label(row, text=label.upper(), font=("Segoe UI", 8, "bold"),
+                 fg=TEXT_LIGHT, bg=BG_MAIN).pack(side="left")
+        tk.Frame(row, bg=BORDER, height=1).pack(
+            side="left", fill="x", expand=True, padx=(10, 0), pady=6)
+
+    def _card(self, parent, icon, title, subtitle, cmd):
+        """White card button with icon badge, title, subtitle, and hover highlight."""
+        card = tk.Frame(parent, bg=BG_WHITE, cursor="hand2",
+                        highlightthickness=1, highlightbackground=BORDER)
+        card.pack(fill="x", padx=60, pady=3, ipady=4)
+
+        # Icon badge
+        icon_lbl = tk.Label(card, text=icon, font=("Segoe UI", 15),
+                             bg=ACCENT_LT, width=3, pady=6)
+        icon_lbl.pack(side="left", padx=(14, 12), pady=8)
+
+        # Text block
+        text_blk = tk.Frame(card, bg=BG_WHITE)
+        text_blk.pack(side="left", fill="x", expand=True, pady=8)
+        tk.Label(text_blk, text=title, font=("Segoe UI", 11, "bold"),
+                 fg=TEXT_DARK, bg=BG_WHITE, anchor="w").pack(fill="x")
+        tk.Label(text_blk, text=subtitle, font=("Segoe UI", 9),
+                 fg=TEXT_LIGHT, bg=BG_WHITE, anchor="w").pack(fill="x")
+
+        # Chevron
+        chev = tk.Label(card, text="›", font=("Segoe UI", 18),
+                        fg=TEXT_LIGHT, bg=BG_WHITE)
+        chev.pack(side="right", padx=16)
+
+        # Hover effect — highlights entire card blue-tinted
+        def on_enter(e):
+            card.configure(bg=ACCENT_LT, highlightbackground=ACCENT)
+            icon_lbl.configure(bg=ACCENT_LT)
+            text_blk.configure(bg=ACCENT_LT)
+            chev.configure(bg=ACCENT_LT, fg=ACCENT)
+            for w in text_blk.winfo_children():
+                w.configure(bg=ACCENT_LT)
+
+        def on_leave(e):
+            card.configure(bg=BG_WHITE, highlightbackground=BORDER)
+            icon_lbl.configure(bg=ACCENT_LT)
+            text_blk.configure(bg=BG_WHITE)
+            chev.configure(bg=BG_WHITE, fg=TEXT_LIGHT)
+            for w in text_blk.winfo_children():
+                w.configure(bg=BG_WHITE)
+
+        for w in [card, icon_lbl, text_blk, chev] + text_blk.winfo_children():
             w.bind("<Button-1>", lambda e: cmd())
-
-        # Hover effect: highlight card red on mouse enter, restore on leave
-        card.bind("<Enter>", lambda e: card.configure(bg=ACCENT))
-        card.bind("<Leave>", lambda e: card.configure(bg=BG_CARD))
+            w.bind("<Enter>",    on_enter)
+            w.bind("<Leave>",    on_leave)
 
 
 # ═══════════════════════════════════════════════════════════════
 # Use Case 1: Record Sale Screen
-# Allows a customer to select a product, choose a payment method
-# (cash or card), and process the transaction with receipt output
+# Customer selects a product and completes a cash or card payment.
+# System side effects: inventory is decremented; a restock request
+# is auto-generated if the slot falls below its threshold.
 # ═══════════════════════════════════════════════════════════════
 class RecordSaleScreen(tk.Frame):
     def __init__(self, master):
-        super().__init__(master, bg=BG_DARK)
-        self.selected   = None              # Currently selected product dict
-        self.payment    = tk.StringVar(value="cash")  # Payment method selection
-        self.cash_given = tk.DoubleVar()    # Amount of cash entered by customer
+        super().__init__(master, bg=BG_MAIN)
+        self.selected   = None
+        self.payment    = tk.StringVar(value="cash")
+        self.cash_given = tk.DoubleVar()
 
-        # Update 4/23/2026 - Load products from database instead of hardcoded PRODUCTS list
+        # Load all slot and product data from the database
         try:
             self.products = db_connection.get_all_products_with_slots()
         except Exception as e:
             messagebox.showerror("Database Error", f"Could not load products:\n{e}")
             self.products = []
-        #----
 
         self._build()
 
     def _build(self):
-        """Builds the full Record Sale layout: header, product grid, and sale panel."""
-        self._header()
-        main = tk.Frame(self, bg=BG_DARK)
-        main.pack(fill="both", expand=True, padx=16, pady=10)
+        screen_header(self, "💳  Record Sale",
+                      self.master.show_home, self.master.machine_info)
 
-        # Split layout: product grid on left, order/payment panel on right
-        left  = tk.Frame(main, bg=BG_DARK)
-        right = tk.Frame(main, bg=BG_DARK, width=300)
-        left.pack(side="left", fill="both", expand=True)
-        right.pack(side="right", fill="y", padx=(10, 0))
+        main = tk.Frame(self, bg=BG_MAIN)
+        main.pack(fill="both", expand=True, padx=20, pady=16)
+
+        # Left: product grid  |  Right: order + payment panel
+        left = tk.Frame(main, bg=BG_MAIN)
+        right = tk.Frame(main, bg=BG_WHITE, width=290,
+                         highlightthickness=1, highlightbackground=BORDER)
+        left.pack(side="left", fill="both", expand=True, padx=(0, 16))
+        right.pack(side="right", fill="y")
 
         self._product_grid(left)
         self._sale_panel(right)
 
-    def _header(self):
-        """Builds the top navigation bar with a Back button and screen title."""
-        hdr = tk.Frame(self, bg=BG_PANEL)
-        hdr.pack(fill="x")
-        tk.Button(hdr, text="← Back", font=("Courier", 10), bg=BG_PANEL, fg=TEXT_GRAY,
-                  bd=0, cursor="hand2", command=self.master.show_home).pack(side="left", padx=14, pady=14)
-        tk.Label(hdr, text="💳  RECORD SALE", font=("Courier", 16, "bold"),
-                 fg=ACCENT, bg=BG_PANEL).pack(side="left", padx=4, pady=14)
-
     def _product_grid(self, parent):
-        """Builds the 4-column product grid showing all machine slots."""
-        tk.Label(parent, text="Select Product", font=("Courier", 11, "bold"),
-                 fg=TEXT_GRAY, bg=BG_DARK).pack(anchor="w", pady=(4, 6))
-        grid_frame = tk.Frame(parent, bg=BG_DARK)
-        grid_frame.pack(fill="both", expand=True)
+        tk.Label(parent, text="Select a product",
+                 font=("Segoe UI", 11, "bold"), fg=TEXT_MID, bg=BG_MAIN
+                 ).pack(anchor="w", pady=(0, 10))
 
-        # Update 4/23/2026 - Uses self.products from database instead of PRODUCTS
+        grid = tk.Frame(parent, bg=BG_MAIN)
+        grid.pack(fill="both", expand=True)
+
         for i, p in enumerate(self.products):
             r, c = divmod(i, 4)
-            self._product_tile(grid_frame, p, r, c)
+            self._product_tile(grid, p, r, c)
         for c in range(4):
-            grid_frame.grid_columnconfigure(c, weight=1)
-        #----
+            grid.grid_columnconfigure(c, weight=1)
 
     def _product_tile(self, parent, p, row, col):
-        """Creates a single product tile showing code, name, price, and stock status.
-        Sold-out items are grayed out and non-clickable."""
-        # Update 4/23/2026 - Also checks for empty slots (no product assigned)
+        """White tile showing slot code, name, price, and stock. Muted if sold out."""
         is_empty = p["count"] == 0 or p["name"] == "Empty"
-        #----
-        bg = "#2d3748" if is_empty else BG_CARD  # Gray out sold-out tiles
 
-        tile = tk.Frame(parent, bg=bg, width=130, height=100,
-                        highlightbackground=BG_DARK, highlightthickness=2)
-        tile.grid(row=row, column=col, padx=4, pady=4, sticky="nsew")
+        tile = tk.Frame(parent, bg=BG_WHITE, width=140, height=108,
+                        highlightthickness=1,
+                        highlightbackground=BORDER if not is_empty else "#e2e8f0")
+        tile.grid(row=row, column=col, padx=5, pady=5, sticky="nsew")
         tile.grid_propagate(False)
-        parent.grid_columnconfigure(col, weight=1)
 
-        # Display slot code (e.g. A1), product name, price, and quantity
-        tk.Label(tile, text=p["code"], font=("Courier", 10, "bold"), fg=ACCENT2, bg=bg).place(x=6, y=4)
-        tk.Label(tile, text=p["name"], font=("Courier", 9, "bold"),
-                 fg=TEXT_WHITE if not is_empty else TEXT_GRAY,
-                 bg=bg, wraplength=110, justify="center").place(relx=0.5, rely=0.42, anchor="center")
-        tk.Label(tile, text=f"${p['price']:.2f}", font=("Courier", 10),
-                 fg=GREEN if not is_empty else TEXT_GRAY, bg=bg).place(relx=0.5, rely=0.75, anchor="center")
+        # Slot code badge
+        tk.Label(tile, text=p["code"], font=("Segoe UI", 8, "bold"),
+                 fg=ACCENT if not is_empty else TEXT_LIGHT,
+                 bg=ACCENT_LT if not is_empty else BG_SIDEBAR,
+                 padx=6, pady=2).place(x=6, y=6)
+
+        # Product name
+        tk.Label(tile, text=p["name"], font=("Segoe UI", 9, "bold"),
+                 fg=TEXT_DARK if not is_empty else TEXT_LIGHT,
+                 bg=BG_WHITE, wraplength=118, justify="center"
+                 ).place(relx=0.5, rely=0.46, anchor="center")
 
         if is_empty:
-            # Update 4/23/2026 - Show EMPTY for unassigned slots, SOLD OUT for zero stock
             label = "EMPTY" if p["name"] == "Empty" else "SOLD OUT"
-            tk.Label(tile, text=label, font=("Courier", 7, "bold"), fg=RED, bg=bg).place(relx=0.5, rely=0.9, anchor="center")
-            #----
+            tk.Label(tile, text=label, font=("Segoe UI", 7, "bold"),
+                     fg=RED, bg=BG_WHITE).place(relx=0.5, rely=0.85, anchor="center")
         else:
-            # Show remaining quantity and bind click to select this product
-            tk.Label(tile, text=f"Qty: {p['count']}", font=("Courier", 7), fg=TEXT_GRAY, bg=bg).place(relx=0.95, rely=0.96, anchor="se")
+            # Price and quantity
+            tk.Label(tile, text=f"${p['price']:.2f}", font=("Segoe UI", 10, "bold"),
+                     fg=GREEN, bg=BG_WHITE).place(relx=0.5, rely=0.72, anchor="center")
+            tk.Label(tile, text=f"Qty: {p['count']}", font=("Segoe UI", 7),
+                     fg=TEXT_LIGHT, bg=BG_WHITE).place(relx=0.95, rely=0.95, anchor="se")
+
+            # Hover and click bindings for selectable tiles
+            def on_enter(e, t=tile):
+                t.configure(highlightbackground=ACCENT, bg=ACCENT_LT)
+                for w in t.winfo_children():
+                    w.configure(bg=ACCENT_LT)
+            def on_leave(e, t=tile):
+                t.configure(highlightbackground=BORDER, bg=BG_WHITE)
+                for w in t.winfo_children():
+                    w.configure(bg=BG_WHITE)
+
+            tile.bind("<Enter>",    on_enter)
+            tile.bind("<Leave>",    on_leave)
             tile.bind("<Button-1>", lambda e, prod=p: self._select(prod))
             for w in tile.winfo_children():
+                w.bind("<Enter>",    on_enter)
+                w.bind("<Leave>",    on_leave)
                 w.bind("<Button-1>", lambda e, prod=p: self._select(prod))
 
     def _sale_panel(self, parent):
-        """Builds the right-side panel: order summary, payment method, and process button."""
-        # Order summary section — updates when a product is selected
-        tk.Label(parent, text="Order Summary", font=("Courier", 11, "bold"),
-                 fg=TEXT_GRAY, bg=BG_DARK).pack(anchor="w")
-        self.summary_frame = tk.Frame(parent, bg=BG_PANEL, width=280, height=110)
-        self.summary_frame.pack(fill="x", pady=(4, 12))
-        self.summary_frame.pack_propagate(False)
+        """Right panel: order summary, payment method selector, and process button."""
+        pad = tk.Frame(parent, bg=BG_WHITE)
+        pad.pack(fill="both", expand=True, padx=20, pady=20)
+
+        # Order summary
+        tk.Label(pad, text="Order Summary", font=("Segoe UI", 11, "bold"),
+                 fg=TEXT_DARK, bg=BG_WHITE).pack(anchor="w")
+        tk.Frame(pad, bg=BORDER, height=1).pack(fill="x", pady=(4, 10))
+
+        self.summary_frame = tk.Frame(pad, bg=BG_SIDEBAR,
+                                      highlightthickness=1, highlightbackground=BORDER)
+        self.summary_frame.pack(fill="x", pady=(0, 16))
         self._refresh_summary()
 
-        # Payment method radio buttons (Cash or Card)
-        tk.Label(parent, text="Payment Method", font=("Courier", 11, "bold"),
-                 fg=TEXT_GRAY, bg=BG_DARK).pack(anchor="w")
-        pf = tk.Frame(parent, bg=BG_DARK)
-        pf.pack(fill="x", pady=(4, 12))
-        for val, label in [("cash", "💵 Cash"), ("card", "💳 Card")]:
+        # Payment method radio buttons
+        tk.Label(pad, text="Payment Method", font=("Segoe UI", 10, "bold"),
+                 fg=TEXT_MID, bg=BG_WHITE).pack(anchor="w")
+        pf = tk.Frame(pad, bg=BG_WHITE)
+        pf.pack(fill="x", pady=(6, 12))
+        for val, label in [("cash", "💵  Cash"), ("card", "💳  Card")]:
             tk.Radiobutton(pf, text=label, variable=self.payment, value=val,
-                           font=("Courier", 10), fg=TEXT_WHITE, bg=BG_DARK,
-                           selectcolor=BG_CARD, activebackground=BG_DARK,
-                           activeforeground=TEXT_WHITE,
-                           command=self._refresh_payment).pack(side="left", padx=8)
+                           font=("Segoe UI", 10), fg=TEXT_DARK, bg=BG_WHITE,
+                           selectcolor=ACCENT_LT, activebackground=BG_WHITE,
+                           command=self._refresh_payment).pack(side="left", padx=(0, 16))
 
-        # Cash input field — shown when cash payment is selected
-        self.cash_frame = tk.Frame(parent, bg=BG_DARK)
-        self.cash_frame.pack(fill="x", pady=(0, 8))
-        tk.Label(self.cash_frame, text="Cash Given ($)", font=("Courier", 10),
-                 fg=TEXT_GRAY, bg=BG_DARK).pack(anchor="w")
+        # Cash input field
+        self.cash_frame = tk.Frame(pad, bg=BG_WHITE)
+        self.cash_frame.pack(fill="x")
+        tk.Label(self.cash_frame, text="Cash Given ($)", font=("Segoe UI", 9),
+                 fg=TEXT_LIGHT, bg=BG_WHITE).pack(anchor="w")
         self.cash_entry = tk.Entry(self.cash_frame, textvariable=self.cash_given,
-                                   font=("Courier", 12), bg=BG_CARD,
-                                   fg=TEXT_WHITE, insertbackground=TEXT_WHITE, bd=0)
-        self.cash_entry.pack(fill="x", ipady=6, pady=2)
+                                   font=("Segoe UI", 11), bg=BG_SIDEBAR, fg=TEXT_DARK,
+                                   insertbackground=TEXT_DARK, relief="flat", bd=0,
+                                   highlightthickness=1, highlightbackground=BORDER,
+                                   highlightcolor=ACCENT)
+        self.cash_entry.pack(fill="x", ipady=7, pady=(2, 0))
 
-        # Card input field — shown when card payment is selected
-        self.card_frame = tk.Frame(parent, bg=BG_DARK)
-        tk.Label(self.card_frame, text="Card Number (last 4)", font=("Courier", 10),
-                 fg=TEXT_GRAY, bg=BG_DARK).pack(anchor="w")
-        self.card_entry = tk.Entry(self.card_frame, font=("Courier", 12),
-                                   bg=BG_CARD, fg=TEXT_WHITE,
-                                   insertbackground=TEXT_WHITE, bd=0)
-        self.card_entry.pack(fill="x", ipady=6, pady=2)
-        self._refresh_payment()  # Show correct input field on load
+        # Card input field
+        self.card_frame = tk.Frame(pad, bg=BG_WHITE)
+        tk.Label(self.card_frame, text="Card Number (last 4)", font=("Segoe UI", 9),
+                 fg=TEXT_LIGHT, bg=BG_WHITE).pack(anchor="w")
+        self.card_entry = tk.Entry(self.card_frame, font=("Segoe UI", 11),
+                                   bg=BG_SIDEBAR, fg=TEXT_DARK,
+                                   insertbackground=TEXT_DARK, relief="flat", bd=0,
+                                   highlightthickness=1, highlightbackground=BORDER,
+                                   highlightcolor=ACCENT)
+        self.card_entry.pack(fill="x", ipady=7, pady=(2, 0))
+        self._refresh_payment()
 
-        # Process Sale button — triggers payment validation and receipt generation
-        tk.Button(parent, text="PROCESS SALE ▶", font=("Courier", 12, "bold"),
-                  bg=ACCENT, fg=TEXT_WHITE, bd=0, activebackground=BTN_HOVER,
-                  cursor="hand2", pady=12, command=self._process_sale).pack(fill="x", pady=(10, 0))
+        action_button(pad, "Process Sale  ▶", self._process_sale)
 
-        # Receipt label — displays transaction result after processing
-        self.receipt_label = tk.Label(parent, text="", font=("Courier", 9),
-                                      fg=GREEN, bg=BG_DARK, justify="left", wraplength=270)
-        self.receipt_label.pack(anchor="w", pady=(10, 0))
+        # Receipt area — shown after a successful sale
+        self.receipt_frame = tk.Frame(pad, bg=GREEN_BG,
+                                      highlightthickness=1, highlightbackground=GREEN)
+        self.receipt_label = tk.Label(self.receipt_frame, text="",
+                                      font=("Segoe UI", 9), fg=GREEN,
+                                      bg=GREEN_BG, justify="left", wraplength=240)
+        self.receipt_label.pack(padx=12, pady=10, anchor="w")
 
     def _refresh_summary(self):
-        """Updates the order summary panel based on the currently selected product."""
+        """Rebuilds the order summary panel based on the currently selected product."""
         for w in self.summary_frame.winfo_children():
-            w.destroy()  # Clear previous summary content
+            w.destroy()
 
         if not self.selected:
-            # Show placeholder if no product has been selected yet
             tk.Label(self.summary_frame, text="No product selected",
-                     font=("Courier", 10), fg=TEXT_GRAY, bg=BG_PANEL).pack(expand=True)
+                     font=("Segoe UI", 10), fg=TEXT_LIGHT, bg=BG_SIDEBAR
+                     ).pack(pady=14)
         else:
-            # Calculate tax (9.5%) and total, then display each line item
-            p = self.selected
-            tax = round(p["price"] * 0.095, 2)
+            p     = self.selected
+            tax   = round(p["price"] * 0.095, 2)
             total = round(p["price"] + tax, 2)
-            for label, val in [("Product:", p["name"]), ("Code:", p["code"]),
-                                ("Price:", f"${p['price']:.2f}"), ("Tax:", f"${tax:.2f}"),
-                                ("TOTAL:", f"${total:.2f}")]:
-                row = tk.Frame(self.summary_frame, bg=BG_PANEL)
-                row.pack(fill="x", padx=10, pady=1)
-                tk.Label(row, text=label, font=("Courier", 9), fg=TEXT_GRAY,
-                         bg=BG_PANEL, width=10, anchor="w").pack(side="left")
-                # Highlight the TOTAL row in orange
+            for label, val, bold in [
+                ("Product", p["name"],           False),
+                ("Code",    p["code"],            False),
+                ("Price",   f"${p['price']:.2f}", False),
+                ("Tax",     f"${tax:.2f}",         False),
+                ("Total",   f"${total:.2f}",       True),
+            ]:
+                row = tk.Frame(self.summary_frame, bg=BG_SIDEBAR)
+                row.pack(fill="x", padx=12, pady=2)
+                tk.Label(row, text=label, font=("Segoe UI", 9),
+                         fg=TEXT_LIGHT, bg=BG_SIDEBAR, width=8, anchor="w").pack(side="left")
                 tk.Label(row, text=val,
-                         font=("Courier", 9, "bold" if label == "TOTAL:" else "normal"),
-                         fg=ACCENT2 if label == "TOTAL:" else TEXT_WHITE,
-                         bg=BG_PANEL).pack(side="left")
+                         font=("Segoe UI", 10, "bold" if bold else "normal"),
+                         fg=ACCENT if bold else TEXT_DARK,
+                         bg=BG_SIDEBAR).pack(side="left")
+            tk.Frame(self.summary_frame, bg=BG_SIDEBAR, height=6).pack()
 
     def _refresh_payment(self):
-        """Shows the cash input or card input field based on the selected payment method."""
+        """Swaps between the cash and card input field based on the selected method."""
         if self.payment.get() == "cash":
-            self.cash_frame.pack(fill="x", pady=(0, 8))
+            self.cash_frame.pack(fill="x", pady=(8, 0))
             self.card_frame.pack_forget()
         else:
-            self.card_frame.pack(fill="x", pady=(0, 8))
+            self.card_frame.pack(fill="x", pady=(8, 0))
             self.cash_frame.pack_forget()
 
     def _select(self, prod):
-        """Handles product tile click — sets selected product and refreshes summary."""
+        """Stores the selected product and refreshes the order summary."""
         self.selected = prod
-        self.receipt_label.configure(text="")  # Clear any previous receipt
+        self.receipt_frame.pack_forget()
+        self.receipt_label.configure(text="")
         self._refresh_summary()
 
     def _process_sale(self):
-        """Validates payment and processes the sale. Generates a receipt on success.
-        For cash: checks sufficient funds and calculates change.
-        For card: validates last 4 digits of card number."""
+        """Validates payment and processes the sale. Shows a receipt on success.
+        System side effects: slot count is decremented; a restock request is
+        auto-generated if stock falls at or below the slot's restock threshold."""
         if not self.selected:
             messagebox.showwarning("No Selection", "Please select a product first.")
             return
 
-        p = self.selected
+        p     = self.selected
         tax   = round(p["price"] * 0.095, 2)
         total = round(p["price"] + tax, 2)
 
         if self.payment.get() == "cash":
             given = self.cash_given.get()
-            # Reject payment if cash given is less than total due
             if given < total:
-                messagebox.showerror("Insufficient Funds", f"Cash ${given:.2f} < total ${total:.2f}.")
+                messagebox.showerror("Insufficient Funds",
+                                     f"Cash ${given:.2f} is less than total ${total:.2f}.")
                 return
-            change = round(given - total, 2)
-            receipt_extra = f"Cash Given:  ${given:.2f}\nChange:      ${change:.2f}"
+            change        = round(given - total, 2)
+            receipt_extra = f"Cash Given:   ${given:.2f}\nChange:       ${change:.2f}"
         else:
             last4 = self.card_entry.get().strip()
-            # Validate that exactly 4 numeric digits were entered
             if not last4.isdigit() or len(last4) != 4:
-                messagebox.showerror("Card Error", "Enter valid last 4 digits.")
+                messagebox.showerror("Card Error", "Please enter valid last 4 digits.")
                 return
-            receipt_extra = f"Card:        xxxx-{last4}\nCard Fee:    $0.00"
+            receipt_extra = f"Card:         xxxx-{last4}\nCard Fee:     $0.00"
 
-        # Update 4/23/2026 - Record transaction in database and update inventory
+        # Record transaction and update inventory in the database
         try:
-            # Record the transaction in the database
             if self.payment.get() == "cash":
                 sale_num = db_connection.record_cash_sale(
-                    product_id=p["product_id"],
-                    machine_id=self.master.machine_id,
-                    tax=tax,
-                    cash_given=self.cash_given.get()
-                )
+                    product_id=p["product_id"], machine_id=self.master.machine_id,
+                    tax=tax, cash_given=self.cash_given.get())
             else:
                 sale_num = db_connection.record_card_sale(
-                    product_id=p["product_id"],
-                    machine_id=self.master.machine_id,
-                    tax=tax,
-                    card_fee=0.00,
-                    account_charged=f"xxxx-{last4}"
-                )
+                    product_id=p["product_id"], machine_id=self.master.machine_id,
+                    tax=tax, card_fee=0.00, account_charged=f"xxxx-{last4}")
 
-            # Decrement the product count in the database
             new_count = p["count"] - 1
             db_connection.update_slot_count(p["code"], new_count)
-
-            # Check if restock is needed after this sale
+            # System-triggered: auto-generate restock request if stock is low
             db_connection.check_and_create_restock_request(p["code"])
 
         except Exception as e:
             messagebox.showerror("Database Error", f"Could not record sale:\n{e}")
             return
 
-        # Update local data to reflect the sale
         p["count"] = new_count
-        #----
 
-        # Display the formatted receipt in the receipt label
+        # Display receipt in the green banner
         self.receipt_label.configure(text=(
-            f"✅ SALE APPROVED\n{'─'*32}\n"
-            # Update 4/23/2026 - Sale number now comes from database auto-increment
-            f"Sale #:      TXN-{sale_num}\n"
-            #----
-            f"Product:     {p['name']} ({p['code']})\n"
-            f"Price:       ${p['price']:.2f}\n"
-            f"Tax:         ${tax:.2f}\n"
-            f"Total:       ${total:.2f}\n"
-            f"{receipt_extra}\n{'─'*32}\n"
-            f"Time: {datetime.now().strftime('%H:%M:%S')}\nThank you!"
-        ))
+            f"✅  Sale Approved\n{'─'*28}\n"
+            f"Sale #:       TXN-{sale_num}\n"
+            f"Product:      {p['name']} ({p['code']})\n"
+            f"Price:        ${p['price']:.2f}\n"
+            f"Tax:          ${tax:.2f}\n"
+            f"Total:        ${total:.2f}\n"
+            f"{receipt_extra}\n{'─'*28}\n"
+            f"Time: {datetime.now().strftime('%H:%M:%S')}\nThank you!"))
+        self.receipt_frame.pack(fill="x", pady=(14, 0))
 
-        # Reset selection after successful sale
         self.selected = None
         self._refresh_summary()
 
 
 # ═══════════════════════════════════════════════════════════════
 # Use Case 2: Update Inventory Screen
-# Allows a restocker (service worker) to view current stock levels
-# for all machine slots and add quantities to restock them
+# Restocker views slot stock levels and enters quantities to add.
+# System side effect: resolves any open restock requests after
+# a slot is successfully restocked.
 # ═══════════════════════════════════════════════════════════════
 class UpdateInventoryScreen(tk.Frame):
     def __init__(self, master):
-        super().__init__(master, bg=BG_DARK)
-        self.restock_vars = {}  # Stores IntVar for each slot's "Add Qty" input
+        super().__init__(master, bg=BG_MAIN)
+        self.restock_vars = {}  # Maps slot code → IntVar for Add Qty input
 
-        # Update 4/23/2026 - Load products from database instead of hardcoded PRODUCTS list
+        # Load all slot data from the database
         try:
             self.products = db_connection.get_all_products_with_slots()
         except Exception as e:
             messagebox.showerror("Database Error", f"Could not load inventory:\n{e}")
             self.products = []
-        #----
 
         self._build()
 
     def _build(self):
-        """Builds all sections of the inventory screen in order."""
-        self._header()
+        screen_header(self, "📦  Update Inventory",
+                      self.master.show_home, self.master.machine_info)
         self._worker_bar()
         self._table()
         self._footer()
 
-    def _header(self):
-        """Builds the top navigation bar with Back button, title, and machine ID."""
-        hdr = tk.Frame(self, bg=BG_PANEL)
-        hdr.pack(fill="x")
-        tk.Button(hdr, text="← Back", font=("Courier", 10), bg=BG_PANEL, fg=TEXT_GRAY,
-                  bd=0, cursor="hand2", command=self.master.show_home).pack(side="left", padx=14, pady=14)
-        tk.Label(hdr, text="📦  UPDATE INVENTORY", font=("Courier", 16, "bold"),
-                 fg=ACCENT, bg=BG_PANEL).pack(side="left", padx=4, pady=14)
-
-        # Update 4/23/2026 - Display machine model from database instead of hardcoded VM-001
-        machine = self.master.machine_info
-        machine_text = f"Machine: {machine['ModelNumber']}" if machine else "Machine: N/A"
-        tk.Label(hdr, text=machine_text, font=("Courier", 10),
-                 fg=TEXT_GRAY, bg=BG_PANEL).pack(side="right", padx=20)
-        #----
-
     def _worker_bar(self):
-        """Displays the logged-in restocker ID and current date/time."""
-        bar = tk.Frame(self, bg=BG_CARD, height=36)
+        """Thin blue banner showing the logged-in restocker and current date/time."""
+        bar = tk.Frame(self, bg=ACCENT_LT, height=38)
         bar.pack(fill="x")
         bar.pack_propagate(False)
 
-        # Update 4/23/2026 - Load restocker info from database instead of hardcoded WORKER_ID
         try:
-            workers = db_connection.get_service_workers()
-            worker_name = workers[0]["Name"] if workers else "Unknown"
-            worker_id = workers[0]["WorkerID"] if workers else "N/A"
+            workers     = db_connection.get_service_workers()
+            worker_name = workers[0]["Name"]     if workers else "Unknown"
+            worker_id   = workers[0]["WorkerID"] if workers else "N/A"
         except Exception:
             worker_name = "Unknown"
-            worker_id = "N/A"
-        tk.Label(bar, text=f"👷 Restocker: {worker_name} (ID: {worker_id})   |   Date: {datetime.now().strftime('%Y-%m-%d %H:%M')}",
-                 font=("Courier", 10), fg=ACCENT2, bg=BG_CARD).pack(side="left", padx=16, pady=8)
-        #----
+            worker_id   = "N/A"
+
+        tk.Label(bar,
+                 text=f"👷  {worker_name}  (ID: {worker_id})     {datetime.now().strftime('%A, %B %d  %H:%M')}",
+                 font=("Segoe UI", 9), fg=ACCENT, bg=ACCENT_LT
+                 ).pack(side="left", padx=20, pady=10)
 
     def _table(self):
-        """Builds the inventory table with a header row and one row per product slot."""
-        container = tk.Frame(self, bg=BG_DARK)
-        container.pack(fill="both", expand=True, padx=16, pady=10)
+        """Scrollable inventory table with a colored header row and alternating rows."""
+        container = tk.Frame(self, bg=BG_MAIN)
+        container.pack(fill="both", expand=True, padx=20, pady=14)
 
-        # Column header row
-        hdr_row = tk.Frame(container, bg=BG_CARD, height=32)
-        hdr_row.pack(fill="x")
-        hdr_row.pack_propagate(False)
-        for h, w in zip(["Slot", "Product Name", "Current", "Max", "Add Qty", "Status"],
-                         [6,      20,              9,         6,     9,          10]):
-            tk.Label(hdr_row, text=h, font=("Courier", 9, "bold"),
-                     fg=ACCENT2, bg=BG_CARD, width=w, anchor="w").pack(side="left", padx=6, pady=6)
+        # Header row
+        hdr = tk.Frame(container, bg=ACCENT, height=34)
+        hdr.pack(fill="x")
+        hdr.pack_propagate(False)
+        for h, w in zip(["Slot", "Product", "Current", "Max", "Add Qty", "Status"],
+                        [6,       22,         9,         7,     9,          10]):
+            tk.Label(hdr, text=h, font=("Segoe UI", 9, "bold"),
+                     fg=BG_WHITE, bg=ACCENT, width=w, anchor="w"
+                     ).pack(side="left", padx=10, pady=8)
 
-        # Update 4/23/2026 - Uses self.products from database instead of PRODUCTS
+        # One row per slot
         for i, p in enumerate(self.products):
             self._table_row(container, p, i)
-        #----
 
     def _table_row(self, parent, p, idx):
-        """Creates a single inventory row showing slot info and a quantity input field.
-        Alternates row background for readability. Status is color-coded:
-        GREEN = OK (>40% full), ORANGE = LOW (>0%), RED = EMPTY (0 count)."""
-        # Alternate row background color for readability
-        bg = BG_PANEL if idx % 2 == 0 else BG_DARK
+        """Single inventory row with alternating background and color-coded status badge."""
+        bg = BG_WHITE if idx % 2 == 0 else BG_SIDEBAR
 
-        # Update 4/23/2026 - Handle empty slots where max could be 0
         max_amt = p["max"] if p["max"] else 1
-        pct = p["count"] / max_amt if max_amt > 0 else 0
-        #----
-        status_color = GREEN if pct > 0.4 else (ACCENT2 if pct > 0 else RED)
-        status_text  = "OK" if pct > 0.4 else ("LOW" if pct > 0 else "EMPTY")
+        pct     = p["count"] / max_amt if max_amt > 0 else 0
 
-        row = tk.Frame(parent, bg=bg, height=36)
+        # Determine status color and text based on fill percentage
+        if pct > 0.4:
+            status_text, fg_s, bg_s = "OK",    GREEN,  GREEN_BG
+        elif pct > 0:
+            status_text, fg_s, bg_s = "LOW",   ORANGE, ORANGE_BG
+        else:
+            status_text, fg_s, bg_s = "EMPTY", RED,    RED_BG
+
+        row = tk.Frame(parent, bg=bg, height=38)
         row.pack(fill="x")
         row.pack_propagate(False)
 
-        # Display slot code, product name, current count, and max capacity
+        # Static columns: slot code, name, current count, max capacity
         for val, w in zip([p["code"], p["name"], str(p["count"]), str(p["max"])],
-                           [6,         20,         9,               6]):
-            tk.Label(row, text=val, font=("Courier", 10),
-                     fg=TEXT_WHITE, bg=bg, width=w, anchor="w").pack(side="left", padx=6)
+                          [6,         22,         9,               7]):
+            tk.Label(row, text=val, font=("Segoe UI", 10),
+                     fg=TEXT_DARK, bg=bg, width=w, anchor="w"
+                     ).pack(side="left", padx=10)
 
-        # Integer input field for how many units the restocker wants to add
+        # Add Qty entry field — restocker types how many to add
         var = tk.IntVar(value=0)
-        self.restock_vars[p["code"]] = var  # Store reference for later retrieval
-        tk.Entry(row, textvariable=var, font=("Courier", 10),
-                 bg=BG_CARD, fg=TEXT_WHITE, insertbackground=TEXT_WHITE,
-                 bd=0, width=5).pack(side="left", padx=6, ipady=3)
+        self.restock_vars[p["code"]] = var
+        tk.Entry(row, textvariable=var, font=("Segoe UI", 10),
+                 bg=BG_MAIN, fg=TEXT_DARK, insertbackground=TEXT_DARK,
+                 relief="flat", bd=0, width=5,
+                 highlightthickness=1, highlightbackground=BORDER,
+                 highlightcolor=ACCENT).pack(side="left", padx=10, ipady=3)
 
-        # Color-coded status label
-        tk.Label(row, text=status_text, font=("Courier", 9, "bold"),
-                 fg=status_color, bg=bg, width=10, anchor="w").pack(side="left", padx=6)
+        # Color-coded status badge
+        tk.Label(row, text=f"  {status_text}  ",
+                 font=("Segoe UI", 8, "bold"),
+                 fg=fg_s, bg=bg_s, padx=4, pady=2).pack(side="left", padx=6)
 
     def _footer(self):
-        """Builds the bottom bar with the Apply Restock button and status message label."""
-        footer = tk.Frame(self, bg=BG_PANEL, height=60)
+        """Bottom action bar with Apply Restock button and status message."""
+        footer = tk.Frame(self, bg=BG_WHITE, height=62,
+                          highlightthickness=1, highlightbackground=BORDER)
         footer.pack(fill="x", side="bottom")
         footer.pack_propagate(False)
 
-        # Apply Restock button — triggers validation and inventory update
-        tk.Button(footer, text="APPLY RESTOCK ▶", font=("Courier", 12, "bold"),
-                  bg=ACCENT, fg=TEXT_WHITE, bd=0, cursor="hand2",
-                  activebackground=BTN_HOVER, padx=20,
-                  command=self._apply_restock).pack(side="right", padx=20, pady=12)
+        btn = tk.Button(footer, text="Apply Restock  ▶",
+                        font=("Segoe UI", 11, "bold"),
+                        bg=ACCENT, fg=BG_WHITE, activebackground=ACCENT_HOV,
+                        activeforeground=BG_WHITE, relief="flat", bd=0,
+                        cursor="hand2", padx=24, command=self._apply_restock)
+        btn.pack(side="right", padx=20, pady=12)
+        btn.bind("<Enter>", lambda e: btn.configure(bg=ACCENT_HOV))
+        btn.bind("<Leave>", lambda e: btn.configure(bg=ACCENT))
 
-        # Status label — shows success message or stays blank
-        self.status_label = tk.Label(footer, text="", font=("Courier", 10),
-                                     fg=GREEN, bg=BG_PANEL)
-        self.status_label.pack(side="left", padx=20, pady=12)
+        self.status_label = tk.Label(footer, text="", font=("Segoe UI", 10),
+                                     fg=GREEN, bg=BG_WHITE)
+        self.status_label.pack(side="left", padx=20)
 
     def _apply_restock(self):
-        """Validates all Add Qty inputs and applies restock to matching slots.
-        Rejects negative quantities and quantities that exceed slot maximum.
-        Logs a unique restock ID on success and refreshes the inventory table."""
-        updated = []  # Tracks successfully restocked slot codes
-        errors  = []  # Tracks validation error messages
+        """Validates all Add Qty inputs and writes valid updates to the database.
+        System side effect: resolves open restock requests for restocked slots."""
+        updated, errors = [], []
 
-        # Update 4/23/2026 - Uses self.products from database instead of PRODUCTS
         for p in self.products:
-        #----
-            add = self.restock_vars[p["code"]].get()  # Get quantity to add for this slot
-
-            # Skip slots with no quantity entered
+            add = self.restock_vars[p["code"]].get()
             if add == 0:
                 continue
-
-            # Reject negative input
             if add < 0:
-                errors.append(f"{p['code']}: negative quantity")
+                errors.append(f"{p['code']}: negative quantity not allowed")
                 continue
-
-            # Reject if new total would exceed the slot's maximum capacity
             new_count = p["count"] + add
             if new_count > p["max"]:
-                errors.append(f"{p['code']}: exceeds max ({p['max']})")
+                errors.append(f"{p['code']}: exceeds max capacity ({p['max']})")
                 continue
-
-            # Update 4/23/2026 - Write restock to database instead of just updating local data
             try:
                 db_connection.update_slot_count(p["code"], new_count)
+                db_connection.resolve_restock_request(p["code"])
                 updated.append(p["code"])
                 self.restock_vars[p["code"]].set(0)
             except Exception as e:
-                errors.append(f"{p['code']}: database error - {e}")
-            #----
+                errors.append(f"{p['code']}: database error — {e}")
 
-        # Show errors if any validation failed
         if errors:
             messagebox.showerror("Restock Errors", "\n".join(errors))
             return
-
-        # Inform user if no quantities were entered
         if not updated:
-            self.status_label.configure(text="No changes made.", fg=TEXT_GRAY)
+            self.status_label.configure(text="No changes entered.", fg=TEXT_LIGHT)
             return
 
-        # Update 4/23/2026 - Updated success message to reflect database write
         self.status_label.configure(
-            text=f"✅ Restock complete: {len(updated)} slot(s) updated in database.", fg=GREEN)
-        #----
-
-        # Refresh the inventory screen to reflect updated counts
+            text=f"✅  {len(updated)} slot(s) updated successfully.", fg=GREEN)
         self.destroy()
         self.master.show_inventory()
 
 
+# ═══════════════════════════════════════════════════════════════
+# Use Case 3: Maintenance Request Screen
+# Technician or admin reports a malfunction or schedules service.
+# System side effect: machine status is set to ERROR or SCHEDULED.
+# ═══════════════════════════════════════════════════════════════
+class MaintenanceRequestScreen(tk.Frame):
+    def __init__(self, master):
+        super().__init__(master, bg=BG_MAIN)
+        self._build()
+
+    def _build(self):
+        screen_header(self, "🔧  Report Maintenance Issue",
+                      self.master.show_home, self.master.machine_info)
+
+        outer = tk.Frame(self, bg=BG_MAIN)
+        outer.pack(expand=True, fill="both")
+        card = tk.Frame(outer, bg=BG_WHITE,
+                        highlightthickness=1, highlightbackground=BORDER)
+        card.pack(padx=80, pady=24, fill="both", expand=True)
+        pad = tk.Frame(card, bg=BG_WHITE)
+        pad.pack(fill="both", expand=True, padx=36, pady=28)
+
+        tk.Label(pad, text="Submit a Maintenance Request",
+                 font=("Segoe UI", 13, "bold"), fg=TEXT_DARK, bg=BG_WHITE).pack(anchor="w")
+        tk.Label(pad, text="Report a malfunction or schedule preventive service for this machine.",
+                 font=("Segoe UI", 10), fg=TEXT_LIGHT, bg=BG_WHITE
+                 ).pack(anchor="w", pady=(2, 20))
+
+        # Request type selector
+        tk.Label(pad, text="Request Type", font=("Segoe UI", 10, "bold"),
+                 fg=TEXT_MID, bg=BG_WHITE).pack(anchor="w")
+        self.request_type = tk.StringVar(value="malfunction")
+        rf = tk.Frame(pad, bg=BG_WHITE)
+        rf.pack(anchor="w", pady=(4, 18))
+        for val, label in [("malfunction", "🔴  Malfunction / Emergency"),
+                            ("preventive",  "🟡  Scheduled Preventive Maintenance")]:
+            tk.Radiobutton(rf, text=label, variable=self.request_type, value=val,
+                           font=("Segoe UI", 10), fg=TEXT_DARK, bg=BG_WHITE,
+                           selectcolor=ACCENT_LT, activebackground=BG_WHITE
+                           ).pack(anchor="w", pady=3)
+
+        # Reason text area and worker ID field
+        self.reason_entry  = labeled_entry(pad, "Reason for Request", height=4, bg=BG_WHITE)
+        self.worker_id_var = tk.StringVar()
+        labeled_entry(pad, "Your Worker ID", var=self.worker_id_var, bg=BG_WHITE)
+
+        action_button(pad, "Submit Request  ▶", self._submit)
+
+        self.confirm_label = tk.Label(pad, text="", font=("Segoe UI", 9),
+                                      fg=GREEN, bg=BG_WHITE,
+                                      wraplength=600, justify="left")
+        self.confirm_label.pack(anchor="w", pady=(14, 0))
+
+    def _submit(self):
+        """Validates form and writes a new maintenance request to the database."""
+        reason    = self.reason_entry.get("1.0", "end").strip()
+        worker_id = self.worker_id_var.get().strip()
+
+        if not reason:
+            messagebox.showwarning("Missing Info", "Please describe the reason for the request.")
+            return
+        if not worker_id:
+            messagebox.showwarning("Missing Info", "Please enter your Worker ID.")
+            return
+
+        try:
+            req_id = db_connection.create_maintenance_request(
+                machine_id=self.master.machine_id, worker_id=worker_id,
+                reason=reason,
+                date_requested=datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
+            # System-triggered: update machine status based on request type
+            new_status = "ERROR" if self.request_type.get() == "malfunction" else "SCHEDULED"
+            db_connection.update_machine_status(self.master.machine_id, new_status)
+        except Exception as e:
+            messagebox.showerror("Database Error", f"Could not submit request:\n{e}")
+            return
+
+        type_label = ("Malfunction" if self.request_type.get() == "malfunction"
+                      else "Preventive Maintenance")
+        self.confirm_label.configure(
+            text=(f"✅  Request submitted\n{'─'*34}\n"
+                  f"Request ID:  MR-{req_id}\n"
+                  f"Type:        {type_label}\n"
+                  f"Worker ID:   {worker_id}\n"
+                  f"Time:        {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n"
+                  f"Status:      Pending — a technician will be assigned shortly."))
+        self.reason_entry.delete("1.0", "end")
+        self.worker_id_var.set("")
+
+
+# ═══════════════════════════════════════════════════════════════
+# Use Case 4: Close Maintenance Ticket Screen
+# Technician selects an open ticket, logs service notes, and closes it.
+# System side effect: machine status is restored to ONLINE.
+# ═══════════════════════════════════════════════════════════════
+class MaintenanceTicketsScreen(tk.Frame):
+    def __init__(self, master):
+        super().__init__(master, bg=BG_MAIN)
+        self.selected_ticket = None
+
+        # Load all open (unresolved) maintenance requests for this machine
+        try:
+            self.tickets = db_connection.get_open_maintenance_requests(self.master.machine_id)
+        except Exception as e:
+            messagebox.showerror("Database Error", f"Could not load tickets:\n{e}")
+            self.tickets = []
+
+        self._build()
+
+    def _build(self):
+        screen_header(self, "✅  Close Maintenance Ticket",
+                      self.master.show_home, self.master.machine_info)
+
+        main = tk.Frame(self, bg=BG_MAIN)
+        main.pack(fill="both", expand=True, padx=20, pady=16)
+
+        # Left: list of open tickets  |  Right: resolution form
+        left = tk.Frame(main, bg=BG_MAIN)
+        right = tk.Frame(main, bg=BG_WHITE, width=320,
+                         highlightthickness=1, highlightbackground=BORDER)
+        left.pack(side="left", fill="both", expand=True, padx=(0, 16))
+        right.pack(side="right", fill="y")
+
+        self._ticket_list(left)
+        self._resolution_form(right)
+
+    def _ticket_list(self, parent):
+        """Renders all open tickets as clickable white cards."""
+        tk.Label(parent, text="Open Tickets",
+                 font=("Segoe UI", 11, "bold"), fg=TEXT_MID, bg=BG_MAIN
+                 ).pack(anchor="w", pady=(0, 10))
+
+        if not self.tickets:
+            ok = tk.Frame(parent, bg=GREEN_BG,
+                          highlightthickness=1, highlightbackground=GREEN)
+            ok.pack(fill="x")
+            tk.Label(ok,
+                     text="✅  No open maintenance tickets — machine is running normally.",
+                     font=("Segoe UI", 10), fg=GREEN, bg=GREEN_BG
+                     ).pack(padx=16, pady=14)
+            return
+
+        for t in self.tickets:
+            self._ticket_card(parent, t)
+
+    def _ticket_card(self, parent, t):
+        """Single clickable ticket card showing request ID, date, and reason."""
+        card = tk.Frame(parent, bg=BG_WHITE, cursor="hand2",
+                        highlightthickness=1, highlightbackground=BORDER)
+        card.pack(fill="x", pady=4, ipady=2)
+
+        top = tk.Frame(card, bg=BG_WHITE)
+        top.pack(fill="x", padx=14, pady=(10, 2))
+        tk.Label(top, text=f"MR-{t['MaintenanceRequestID']}",
+                 font=("Segoe UI", 10, "bold"), fg=ACCENT, bg=BG_WHITE).pack(side="left")
+        tk.Label(top, text=str(t["DateRequested"]),
+                 font=("Segoe UI", 9), fg=TEXT_LIGHT, bg=BG_WHITE).pack(side="right")
+
+        tk.Label(card, text=t["ReasonForRequest"],
+                 font=("Segoe UI", 9), fg=TEXT_MID, bg=BG_WHITE,
+                 wraplength=360, justify="left", anchor="w"
+                 ).pack(fill="x", padx=14, pady=(0, 10))
+
+        # Hover highlight for the entire card
+        def on_enter(e, c=card):
+            c.configure(bg=ACCENT_LT, highlightbackground=ACCENT)
+            for w in c.winfo_children():
+                w.configure(bg=ACCENT_LT)
+                for ww in w.winfo_children():
+                    ww.configure(bg=ACCENT_LT)
+
+        def on_leave(e, c=card):
+            c.configure(bg=BG_WHITE, highlightbackground=BORDER)
+            for w in c.winfo_children():
+                w.configure(bg=BG_WHITE)
+                for ww in w.winfo_children():
+                    ww.configure(bg=BG_WHITE)
+
+        for w in [card] + card.winfo_children():
+            w.bind("<Button-1>", lambda e, ticket=t: self._select_ticket(ticket))
+            w.bind("<Enter>",    on_enter)
+            w.bind("<Leave>",    on_leave)
+
+    def _resolution_form(self, parent):
+        """Right-side form where the technician logs notes and closes the ticket."""
+        pad = tk.Frame(parent, bg=BG_WHITE)
+        pad.pack(fill="both", expand=True, padx=24, pady=24)
+
+        tk.Label(pad, text="Close Selected Ticket",
+                 font=("Segoe UI", 11, "bold"), fg=TEXT_DARK, bg=BG_WHITE).pack(anchor="w")
+        tk.Frame(pad, bg=BORDER, height=1).pack(fill="x", pady=(4, 14))
+
+        self.selected_label = tk.Label(pad, text="No ticket selected.",
+                                       font=("Segoe UI", 10), fg=TEXT_LIGHT, bg=BG_WHITE)
+        self.selected_label.pack(anchor="w", pady=(0, 14))
+
+        self.notes_entry = labeled_entry(pad, "Service Notes", height=4, bg=BG_WHITE)
+        self.tech_id_var = tk.StringVar()
+        labeled_entry(pad, "Technician ID", var=self.tech_id_var, bg=BG_WHITE)
+
+        action_button(pad, "Close Ticket  ▶", self._close_ticket)
+
+        self.confirm_label = tk.Label(pad, text="", font=("Segoe UI", 9),
+                                      fg=GREEN, bg=BG_WHITE,
+                                      wraplength=260, justify="left")
+        self.confirm_label.pack(anchor="w", pady=(12, 0))
+
+    def _select_ticket(self, ticket):
+        """Stores the clicked ticket and highlights its ID in the form."""
+        self.selected_ticket = ticket
+        self.selected_label.configure(
+            text=f"Selected: MR-{ticket['MaintenanceRequestID']}", fg=ACCENT)
+        self.confirm_label.configure(text="")
+
+    def _close_ticket(self):
+        """Marks the selected ticket as resolved and restores machine status to ONLINE."""
+        if not self.selected_ticket:
+            messagebox.showwarning("No Ticket", "Please select a ticket to close.")
+            return
+
+        notes   = self.notes_entry.get("1.0", "end").strip()
+        tech_id = self.tech_id_var.get().strip()
+
+        if not notes:
+            messagebox.showwarning("Missing Info", "Please enter service notes.")
+            return
+        if not tech_id:
+            messagebox.showwarning("Missing Info", "Please enter your Technician ID.")
+            return
+
+        date_resolved = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+
+        try:
+            db_connection.close_maintenance_request(
+                request_id=self.selected_ticket["MaintenanceRequestID"],
+                date_resolved=date_resolved, notes=notes)
+            # System-triggered: restore machine to ONLINE after repair is complete
+            db_connection.update_machine_status(self.master.machine_id, "ONLINE")
+        except Exception as e:
+            messagebox.showerror("Database Error", f"Could not close ticket:\n{e}")
+            return
+
+        self.confirm_label.configure(
+            text=(f"✅  Ticket closed\n{'─'*28}\n"
+                  f"Request ID:  MR-{self.selected_ticket['MaintenanceRequestID']}\n"
+                  f"Technician:  {tech_id}\n"
+                  f"Resolved:    {date_resolved}\n"
+                  f"Machine status → ONLINE"))
+
+        self.selected_ticket = None
+        self.selected_label.configure(text="No ticket selected.", fg=TEXT_LIGHT)
+        self.notes_entry.delete("1.0", "end")
+        self.tech_id_var.set("")
+        self.destroy()
+        self.master.show_maintenance_tickets()
+
+
+# ═══════════════════════════════════════════════════════════════
+# Use Case 5: Update Cash Level Screen
+# Restocker logs a cash collection or a coin change refill.
+# System side effects: resolves open cash or change alerts.
+# ═══════════════════════════════════════════════════════════════
+class UpdateCashLevelScreen(tk.Frame):
+    def __init__(self, master):
+        super().__init__(master, bg=BG_MAIN)
+
+        # Load money handler data from the database
+        try:
+            self.money_info = db_connection.get_money_handler(self.master.machine_id)
+        except Exception as e:
+            messagebox.showerror("Database Error", f"Could not load cash data:\n{e}")
+            self.money_info = None
+
+        self._build()
+
+    def _build(self):
+        screen_header(self, "💵  Update Cash Level",
+                      self.master.show_home, self.master.machine_info)
+
+        main = tk.Frame(self, bg=BG_MAIN)
+        main.pack(fill="both", expand=True, padx=20, pady=16)
+
+        # Left: current cash status  |  Right: action form
+        left = tk.Frame(main, bg=BG_WHITE,
+                        highlightthickness=1, highlightbackground=BORDER)
+        left.pack(side="left", fill="both", expand=True, padx=(0, 16))
+
+        right = tk.Frame(main, bg=BG_WHITE, width=340,
+                         highlightthickness=1, highlightbackground=BORDER)
+        right.pack(side="right", fill="y")
+
+        self._status_panel(left)
+        self._action_form(right)
+
+    def _status_panel(self, parent):
+        """Displays current MoneyHandler thresholds loaded from the database."""
+        pad = tk.Frame(parent, bg=BG_WHITE)
+        pad.pack(fill="both", expand=True, padx=28, pady=24)
+
+        tk.Label(pad, text="Current Cash Status",
+                 font=("Segoe UI", 13, "bold"), fg=TEXT_DARK, bg=BG_WHITE).pack(anchor="w")
+        tk.Label(pad, text="Thresholds and limits configured for this machine.",
+                 font=("Segoe UI", 10), fg=TEXT_LIGHT, bg=BG_WHITE
+                 ).pack(anchor="w", pady=(2, 18))
+        tk.Frame(pad, bg=BORDER, height=1).pack(fill="x", pady=(0, 16))
+
+        if self.money_info:
+            m = self.money_info
+            for label, val in [
+                ("Bill Max Amount",            f"${m.get('BillMaxAmount', 'N/A')}"),
+                ("Bill Restock Max Threshold", f"{m.get('BillRestockMaxThreshold', 'N/A')}%"),
+                ("Coin Restock Min Threshold", f"{m.get('CoinRestockMinThreshold', 'N/A')}%"),
+                ("Coin Restock Max Threshold", f"{m.get('CoinRestockMaxThreshold', 'N/A')}%"),
+            ]:
+                row = tk.Frame(pad, bg=BG_SIDEBAR,
+                               highlightthickness=1, highlightbackground=BORDER)
+                row.pack(fill="x", pady=4)
+                tk.Label(row, text=label, font=("Segoe UI", 10),
+                         fg=TEXT_MID, bg=BG_SIDEBAR, width=28, anchor="w"
+                         ).pack(side="left", padx=14, pady=10)
+                tk.Label(row, text=val, font=("Segoe UI", 10, "bold"),
+                         fg=TEXT_DARK, bg=BG_SIDEBAR).pack(side="right", padx=14)
+        else:
+            tk.Label(pad, text="Could not load cash data from database.",
+                     font=("Segoe UI", 10), fg=RED, bg=BG_WHITE).pack(anchor="w")
+
+    def _action_form(self, parent):
+        """Right-side form for logging a cash collection or change refill."""
+        pad = tk.Frame(parent, bg=BG_WHITE)
+        pad.pack(fill="both", expand=True, padx=24, pady=24)
+
+        tk.Label(pad, text="Log an Action",
+                 font=("Segoe UI", 13, "bold"), fg=TEXT_DARK, bg=BG_WHITE).pack(anchor="w")
+        tk.Frame(pad, bg=BORDER, height=1).pack(fill="x", pady=(4, 16))
+
+        # Action type selector
+        tk.Label(pad, text="Action Type", font=("Segoe UI", 10, "bold"),
+                 fg=TEXT_MID, bg=BG_WHITE).pack(anchor="w")
+        self.action_type = tk.StringVar(value="collect")
+        af = tk.Frame(pad, bg=BG_WHITE)
+        af.pack(anchor="w", pady=(4, 16))
+        for val, label in [("collect", "💰  Collect Cash (Bills)"),
+                            ("refill",  "🪙  Refill Change (Coins)")]:
+            tk.Radiobutton(af, text=label, variable=self.action_type, value=val,
+                           font=("Segoe UI", 10), fg=TEXT_DARK, bg=BG_WHITE,
+                           selectcolor=ACCENT_LT, activebackground=BG_WHITE
+                           ).pack(anchor="w", pady=3)
+
+        self.amount_var    = tk.DoubleVar()
+        self.worker_id_var = tk.StringVar()
+        labeled_entry(pad, "Amount ($)",     var=self.amount_var,    bg=BG_WHITE)
+        labeled_entry(pad, "Your Worker ID", var=self.worker_id_var, bg=BG_WHITE)
+
+        action_button(pad, "Apply Cash Update  ▶", self._apply)
+
+        self.confirm_label = tk.Label(pad, text="", font=("Segoe UI", 9),
+                                      fg=GREEN, bg=BG_WHITE,
+                                      wraplength=280, justify="left")
+        self.confirm_label.pack(anchor="w", pady=(12, 0))
+
+    def _apply(self):
+        """Validates input and writes the cash collection or refill to the database."""
+        amount    = self.amount_var.get()
+        worker_id = self.worker_id_var.get().strip()
+        action    = self.action_type.get()
+
+        if amount <= 0:
+            messagebox.showwarning("Invalid Amount", "Please enter an amount greater than $0.")
+            return
+        if not worker_id:
+            messagebox.showwarning("Missing Info", "Please enter your Worker ID.")
+            return
+
+        try:
+            if action == "collect":
+                db_connection.record_cash_collection(
+                    machine_id=self.master.machine_id, worker_id=worker_id,
+                    amount_collected=amount,
+                    date=datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
+                # System-triggered: resolve any active cash collection alert
+                db_connection.resolve_cash_collection_alert(self.master.machine_id)
+                action_label = "Cash Collected"
+            else:
+                db_connection.record_change_refill(
+                    machine_id=self.master.machine_id, worker_id=worker_id,
+                    amount_added=amount,
+                    date=datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
+                # System-triggered: resolve any active change refill alert
+                db_connection.resolve_change_refill_alert(self.master.machine_id)
+                action_label = "Change Refilled"
+        except Exception as e:
+            messagebox.showerror("Database Error", f"Could not update cash level:\n{e}")
+            return
+
+        self.confirm_label.configure(
+            text=(f"✅  {action_label}\n{'─'*30}\n"
+                  f"Amount:      ${amount:.2f}\n"
+                  f"Worker ID:   {worker_id}\n"
+                  f"Time:        {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}"))
+        self.amount_var.set(0.0)
+        self.worker_id_var.set("")
+
+
+# ═══════════════════════════════════════════════════════════════
+# Use Case 6: Update Machine Information Screen
+# Admin edits the machine's stored profile (address, model, etc.)
+# ═══════════════════════════════════════════════════════════════
+class UpdateMachineInfoScreen(tk.Frame):
+    def __init__(self, master):
+        super().__init__(master, bg=BG_MAIN)
+        self.machine = self.master.machine_info
+        self._build()
+
+    def _build(self):
+        screen_header(self, "⚙️  Update Machine Information",
+                      self.master.show_home, self.master.machine_info)
+
+        outer = tk.Frame(self, bg=BG_MAIN)
+        outer.pack(expand=True, fill="both")
+        card = tk.Frame(outer, bg=BG_WHITE,
+                        highlightthickness=1, highlightbackground=BORDER)
+        card.pack(padx=80, pady=24, fill="both", expand=True)
+        pad = tk.Frame(card, bg=BG_WHITE)
+        pad.pack(fill="both", expand=True, padx=36, pady=28)
+
+        tk.Label(pad, text="Edit Machine Profile",
+                 font=("Segoe UI", 13, "bold"), fg=TEXT_DARK, bg=BG_WHITE).pack(anchor="w")
+        tk.Label(pad, text="Changes are saved directly to the database.",
+                 font=("Segoe UI", 10), fg=TEXT_LIGHT, bg=BG_WHITE
+                 ).pack(anchor="w", pady=(2, 18))
+        tk.Frame(pad, bg=BORDER, height=1).pack(fill="x", pady=(0, 12))
+
+        # Two-column layout for the editable fields
+        cols     = tk.Frame(pad, bg=BG_WHITE)
+        cols.pack(fill="x")
+        left_col  = tk.Frame(cols, bg=BG_WHITE)
+        right_col = tk.Frame(cols, bg=BG_WHITE)
+        left_col.pack(side="left",  fill="both", expand=True, padx=(0, 20))
+        right_col.pack(side="right", fill="both", expand=True)
+
+        self.fields = {}
+        m = self.machine or {}
+
+        for display, db_key, current in [
+            ("Address",           "Address",         m.get("Address", "")),
+            ("Model Number",      "ModelNumber",      m.get("ModelNumber", "")),
+            ("Max Product Slots", "MaxProductSlots",  str(m.get("MaxProductSlots", ""))),
+        ]:
+            var = tk.StringVar(value=current)
+            labeled_entry(left_col, display, var=var, bg=BG_WHITE)
+            self.fields[db_key] = var
+
+        for display, db_key, current in [
+            ("Days Between Services", "DaysBetweenServices", str(m.get("DaysBetweenServices", ""))),
+            ("Current State",         "CurrentState",         m.get("CurrentState", "")),
+        ]:
+            var = tk.StringVar(value=current)
+            labeled_entry(right_col, display, var=var, bg=BG_WHITE)
+            self.fields[db_key] = var
+
+        action_button(pad, "Save Changes  ▶", self._save)
+
+        self.confirm_label = tk.Label(pad, text="", font=("Segoe UI", 9),
+                                      fg=GREEN, bg=BG_WHITE,
+                                      wraplength=600, justify="left")
+        self.confirm_label.pack(anchor="w", pady=(12, 0))
+
+    def _save(self):
+        """Validates required fields and writes the updated machine profile to the database."""
+        data = {key: var.get().strip() for key, var in self.fields.items()}
+
+        if not data["Address"] or not data["ModelNumber"]:
+            messagebox.showwarning("Missing Info", "Address and Model Number are required.")
+            return
+
+        try:
+            db_connection.update_machine_info(
+                machine_id=self.master.machine_id,
+                address=data["Address"],
+                model_number=data["ModelNumber"],
+                max_slots=data["MaxProductSlots"],
+                days_between_services=data["DaysBetweenServices"],
+                current_state=data["CurrentState"])
+            # Refresh the cached machine info so the header updates immediately
+            self.master.machine_info = db_connection.get_machine_info()
+        except Exception as e:
+            messagebox.showerror("Database Error", f"Could not save changes:\n{e}")
+            return
+
+        self.confirm_label.configure(
+            text=(f"✅  Machine profile updated\n{'─'*36}\n"
+                  f"Address:      {data['Address']}\n"
+                  f"Model:        {data['ModelNumber']}\n"
+                  f"Max Slots:    {data['MaxProductSlots']}\n"
+                  f"Service Int.: {data['DaysBetweenServices']} days\n"
+                  f"State:        {data['CurrentState']}\n"
+                  f"Saved:        {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}"))
+
+
 # ── App entry point ─────────────────────────────────────────────
-# Only runs when this file is executed directly (not imported)
 if __name__ == "__main__":
     app = VendingMachineApp()
     app.mainloop()
