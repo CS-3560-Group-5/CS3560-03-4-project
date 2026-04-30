@@ -7,7 +7,7 @@ from abc import ABC
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING: 
-    from moneyHandler import moneyHandler
+    from unused.moneyHandler import moneyHandler
 
 ## setting up db cursor
 machDB = mysql.connector.connect(

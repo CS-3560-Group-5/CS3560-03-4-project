@@ -4,8 +4,8 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from maintenanceRequest import maintenanceRequest
-    from machine import machine
+    from unused.maintenanceRequest import maintenanceRequest
+    from unused.machine import machine
 
 # actual imports
 import mysql.connector

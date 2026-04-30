@@ -6,8 +6,8 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from restockRequest import restockRequest
-    from machineSlot import machineSlot
+    from unused.restockRequest import restockRequest
+    from unused.machineSlot import machineSlot
 
 # actual imports
 import mysql.connector

@@ -8,14 +8,14 @@ from typing import TYPE_CHECKING
 from typing import List
 
 if TYPE_CHECKING:      # This if statement is needed at the top of each file to avoid circular imports made by type hinting. Put all imported classes for type hinting within this if statement
-    from serviceWorker import serviceWorker
-    from transaction import transaction
-    from product import product
-    from maintenanceRequest import maintenanceRequest
-    from cardSale import cardSale
-    from cashSale import cashSale
-    from coin import coin
-    from bill import bill
+    from unused.serviceWorker import serviceWorker
+    from unused.transaction import transaction
+    from unused.product import product
+    from unused.maintenanceRequest import maintenanceRequest
+    from unused.cardSale import cardSale
+    from unused.cashSale import cashSale
+    from unused.coin import coin
+    from unused.bill import bill
 
 # actual imports
 import mysql.connector

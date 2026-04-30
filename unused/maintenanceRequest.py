@@ -6,8 +6,8 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from serviceWorker import serviceWorker
-    from machine import machine
+    from unused.serviceWorker import serviceWorker
+    from unused.machine import machine
 
 # actual imports
 import mysql.connector

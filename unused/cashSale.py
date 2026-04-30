@@ -6,12 +6,12 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from transaction import transaction
-    from machine import machine
+    from unused.transaction import transaction
+    from unused.machine import machine
 
 # actual imports
-from transaction import transaction
-from product import product
+from unused.transaction import transaction
+from unused.product import product
 import mysql.connector
 
 ## setting up db cursor

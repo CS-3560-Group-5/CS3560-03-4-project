@@ -2,18 +2,18 @@
 ## 4-18-2026
 ## imports
 import mysql.connector
-from machine import machine
-from product import product
-from maintenanceRequest import maintenanceRequest
-from restockRequest import restockRequest
-from serviceWorker import serviceWorker
-from cardSale import cardSale
-from cashSale import cashSale
-from machineSlot import machineSlot
-from moneyHandler import moneyHandler
-from coin import coin
-from bill import bill
-from perishableItem import perishableItem
+from unused.machine import machine
+from unused.product import product
+from unused.maintenanceRequest import maintenanceRequest
+from unused.restockRequest import restockRequest
+from unused.serviceWorker import serviceWorker
+from unused.cardSale import cardSale
+from unused.cashSale import cashSale
+from unused.machineSlot import machineSlot
+from unused.moneyHandler import moneyHandler
+from unused.coin import coin
+from unused.bill import bill
+from unused.perishableItem import perishableItem
 
 ## setting up db cursor
 machDB = mysql.connector.connect(

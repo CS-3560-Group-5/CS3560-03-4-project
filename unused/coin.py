@@ -1,12 +1,12 @@
 ## coin class
 ## 4-6-2026
 from __future__ import annotations
-from currency import currency
+from unused.currency import currency
 from typing import TYPE_CHECKING
 import mysql.connector
 
 if TYPE_CHECKING: 
-    from moneyHandler import moneyHandler
+    from unused.moneyHandler import moneyHandler
 
 ## setting up db cursor
 machDB = mysql.connector.connect(

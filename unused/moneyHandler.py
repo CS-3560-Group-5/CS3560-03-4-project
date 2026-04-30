@@ -6,7 +6,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from machine import machine
+    from unused.machine import machine
 
 # actual import
 import mysql.connector

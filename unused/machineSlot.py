@@ -6,13 +6,13 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, List
 
 if TYPE_CHECKING:
-    from product import product
-    from restockRequest import restockRequest
+    from unused.product import product
+    from unused.restockRequest import restockRequest
 
 
 # actual imports
 import mysql.connector
-from restockRequest import restockRequest
+from unused.restockRequest import restockRequest
 
 ## setting up db cursor
 machDB = mysql.connector.connect(

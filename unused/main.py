@@ -1,7 +1,7 @@
 # main
 # 4/19/2026
-from allClasses import allClasses
-from machine import machine
+from unused.allClasses import allClasses
+from unused.machine import machine
 
 classes = allClasses()
 cardSaleList = classes.returnCardSaleList()

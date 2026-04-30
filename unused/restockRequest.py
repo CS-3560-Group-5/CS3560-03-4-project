@@ -6,8 +6,8 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from serviceWorker import serviceWorker
-    from moneyHandler import moneyHandler
+    from unused.serviceWorker import serviceWorker
+    from unused.moneyHandler import moneyHandler
 
 # actual imports
 import mysql.connector
