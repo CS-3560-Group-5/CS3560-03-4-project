@@ -1,6 +1,6 @@
 import tkinter as tk
-from tkinter import messagebox
-from datetime import datetime
+from tkinter import messagebox, ttk
+from datetime import datetime, date, timedelta
 
 # Connect to database
 import db_connection
@@ -107,7 +107,34 @@ class VendingMachineApp(tk.Tk):
             self.machine_id   = 1
         # ----
 
+        self._maintenance_scheduled = False
+        self._check_maintenance_schedule()
         self.show_home()
+
+    def _check_maintenance_schedule(self):
+        """Runs every 60 s. Auto-creates a maintenance request if service is overdue."""
+        try:
+            info = db_connection.get_machine_info()
+            if info and info.get("DateLastServiced") and info.get("DaysBetweenServices"):
+                last = info["DateLastServiced"]
+                if isinstance(last, str):
+                    last = datetime.strptime(last, "%Y-%m-%d").date()
+                interval = int(info["DaysBetweenServices"])
+                due = last + timedelta(days=interval)
+                if date.today() > due and not self._maintenance_scheduled:
+                    if not db_connection.has_open_auto_maintenance(info["MachineID"]):
+                        workers = db_connection.get_service_workers(info["MachineID"])
+                        worker_id = workers[0]["WorkerID"] if workers else 1
+                        db_connection.create_maintenance_request(
+                            machine_id=info["MachineID"],
+                            worker_id=worker_id,
+                            reason="Auto-Scheduled Servicing",
+                            date_requested=datetime.now().strftime("%Y-%m-%d"))
+                        db_connection.update_machine_status(info["MachineID"], "SCHEDULED")
+                    self._maintenance_scheduled = True
+        except Exception:
+            pass
+        self.after(60000, self._check_maintenance_schedule)
 
     def switch_frame(self, FrameClass, **kwargs):
         """Destroys the current screen and replaces it with a new one."""
@@ -124,6 +151,8 @@ class VendingMachineApp(tk.Tk):
     def show_maintenance_tickets(self): self.switch_frame(MaintenanceTicketsScreen)
     def show_cash_level(self):          self.switch_frame(UpdateCashLevelScreen)
     def show_machine_info(self):        self.switch_frame(UpdateMachineInfoScreen)
+    def show_transactions(self):        self.switch_frame(ViewTransactionsScreen)
+    def show_manage_workers(self):       self.switch_frame(ManageWorkersScreen)
 
 
 # ═══════════════════════════════════════════════════════════════
@@ -151,9 +180,31 @@ class HomeScreen(tk.Frame):
         tk.Label(hdr, text=info_text, font=("Segoe UI", 10),
                  fg=TEXT_LIGHT, bg=BG_WHITE).pack(side="right", padx=28)
 
-        # Body
-        body = tk.Frame(self, bg=BG_MAIN)
-        body.pack(expand=True)
+        # Scrollable body
+        scroll_wrap = tk.Frame(self, bg=BG_MAIN)
+        scroll_wrap.pack(fill="both", expand=True)
+
+        canvas = tk.Canvas(scroll_wrap, bg=BG_MAIN, highlightthickness=0)
+        scrollbar = ttk.Scrollbar(scroll_wrap, orient="vertical", command=canvas.yview)
+        canvas.configure(yscrollcommand=scrollbar.set)
+
+        scrollbar.pack(side="right", fill="y")
+        canvas.pack(side="left", fill="both", expand=True)
+
+        body = tk.Frame(canvas, bg=BG_MAIN)
+        body_window = canvas.create_window((0, 0), window=body, anchor="nw")
+
+        def _on_resize(e):
+            canvas.itemconfig(body_window, width=e.width)
+        canvas.bind("<Configure>", _on_resize)
+
+        def _on_body_resize(e):
+            canvas.configure(scrollregion=canvas.bbox("all"))
+        body.bind("<Configure>", _on_body_resize)
+
+        def _scroll(e):
+            canvas.yview_scroll(int(-1 * (e.delta / 120)), "units")
+        self.master.bind_all("<MouseWheel>", _scroll)
 
         tk.Label(body, text="What would you like to do?",
                  font=("Segoe UI", 13), fg=TEXT_MID, bg=BG_MAIN
@@ -174,17 +225,35 @@ class HomeScreen(tk.Frame):
                    "Collect cash or refill coins",
                    self.master.show_cash_level)
 
-        # Technician / Admin section
-        self._section(body, "Technician / Admin")
+        # Technician section
+        self._section(body, "Technician")
         self._card(body, "🔧", "Report Maintenance Issue",
                    "Log a malfunction or request service",
                    self.master.show_maintenance_request)
         self._card(body, "✅", "Close Maintenance Ticket",
                    "Technician marks a repair as complete",
                    self.master.show_maintenance_tickets)
+
+        # Admin section
+        self._section(body, "Admin")
         self._card(body, "⚙️", "Machine Information",
                    "Admin updates the machine profile",
                    self.master.show_machine_info)
+        self._card(body, "📊", "View Transactions",
+                   "View all sales history and revenue totals",
+                   self.master.show_transactions)
+        self._card(body, "👷", "Manage Workers",
+                   "Add, edit, or remove service workers",
+                   self.master.show_manage_workers)
+
+        tk.Frame(body, bg=BG_MAIN, height=20).pack()
+
+    def destroy(self):
+        try:
+            self.master.unbind_all("<MouseWheel>")
+        except Exception:
+            pass
+        super().destroy()
 
     def _section(self, parent, label):
         """Small uppercase section label with a horizontal divider line."""
@@ -254,6 +323,7 @@ class RecordSaleScreen(tk.Frame):
         self.selected   = None
         self.payment    = tk.StringVar(value="cash")
         self.cash_given = tk.DoubleVar()
+        self.qty_labels = {}
 
         # Load all slot and product data from the database
         try:
@@ -325,8 +395,10 @@ class RecordSaleScreen(tk.Frame):
             # Price and quantity
             tk.Label(tile, text=f"${p['price']:.2f}", font=("Segoe UI", 10, "bold"),
                      fg=GREEN, bg=BG_WHITE).place(relx=0.5, rely=0.72, anchor="center")
-            tk.Label(tile, text=f"Qty: {p['count']}", font=("Segoe UI", 7),
-                     fg=TEXT_LIGHT, bg=BG_WHITE).place(relx=0.95, rely=0.95, anchor="se")
+            qty_lbl = tk.Label(tile, text=f"Qty: {p['count']}", font=("Segoe UI", 7),
+                               fg=TEXT_LIGHT, bg=BG_WHITE)
+            qty_lbl.place(relx=0.95, rely=0.95, anchor="se")
+            self.qty_labels[p["code"]] = qty_lbl
 
             # Hover and click bindings for selectable tiles
             def on_enter(e, t=tile):
@@ -484,7 +556,7 @@ class RecordSaleScreen(tk.Frame):
             if self.payment.get() == "cash":
                 sale_num = db_connection.record_cash_sale(
                     product_id=p["product_id"], machine_id=self.master.machine_id,
-                    tax=tax, cash_given=self.cash_given.get())
+                    tax=tax, cash_given=self.cash_given.get(), price=p["price"])
             else:
                 sale_num = db_connection.record_card_sale(
                     product_id=p["product_id"], machine_id=self.master.machine_id,
@@ -500,6 +572,8 @@ class RecordSaleScreen(tk.Frame):
             return
 
         p["count"] = new_count
+        if p["code"] in self.qty_labels:
+            self.qty_labels[p["code"]].configure(text=f"Qty: {new_count}")
 
         # Display receipt in the green banner
         self.receipt_label.configure(text=(
@@ -528,45 +602,46 @@ class UpdateInventoryScreen(tk.Frame):
         super().__init__(master, bg=BG_MAIN)
         self.restock_vars = {}  # Maps slot code → IntVar for Add Qty input
 
-        # Load all slot data from the database
         try:
-            self.products = db_connection.get_all_products_with_slots()
+            self.all_products = db_connection.get_all_products_with_slots()
         except Exception as e:
             messagebox.showerror("Database Error", f"Could not load inventory:\n{e}")
-            self.products = []
+            self.all_products = []
 
+        try:
+            self.workers = db_connection.get_service_workers(self.master.machine_id)
+        except Exception:
+            self.workers = []
+
+        self.products = list(self.all_products)
         self._build()
 
     def _build(self):
         screen_header(self, "📦  Update Inventory",
                       self.master.show_home, self.master.machine_info)
         self._worker_bar()
-        self._table()
+        self._table_container = tk.Frame(self, bg=BG_MAIN)
+        self._table_container.pack(fill="both", expand=True, padx=20, pady=14)
+        self._build_table()
         self._footer()
 
     def _worker_bar(self):
-        """Thin blue banner showing the logged-in restocker and current date/time."""
+        """Thin blue banner showing the first assigned restocker and current date/time."""
         bar = tk.Frame(self, bg=ACCENT_LT, height=38)
         bar.pack(fill="x")
         bar.pack_propagate(False)
 
-        try:
-            workers     = db_connection.get_service_workers()
-            worker_name = workers[0]["Name"]     if workers else "Unknown"
-            worker_id   = workers[0]["WorkerID"] if workers else "N/A"
-        except Exception:
-            worker_name = "Unknown"
-            worker_id   = "N/A"
+        worker_name = self.workers[0]["Name"]     if self.workers else "Unknown"
+        worker_id   = self.workers[0]["WorkerID"] if self.workers else "N/A"
 
         tk.Label(bar,
                  text=f"👷  {worker_name}  (ID: {worker_id})     {datetime.now().strftime('%A, %B %d  %H:%M')}",
                  font=("Segoe UI", 9), fg=ACCENT, bg=ACCENT_LT
                  ).pack(side="left", padx=20, pady=10)
 
-    def _table(self):
-        """Scrollable inventory table with a colored header row and alternating rows."""
-        container = tk.Frame(self, bg=BG_MAIN)
-        container.pack(fill="both", expand=True, padx=20, pady=14)
+    def _build_table(self):
+        """Renders the inventory table into self._table_container."""
+        container = self._table_container
 
         # Header row
         hdr = tk.Frame(container, bg=ACCENT, height=34)
@@ -577,6 +652,12 @@ class UpdateInventoryScreen(tk.Frame):
             tk.Label(hdr, text=h, font=("Segoe UI", 9, "bold"),
                      fg=BG_WHITE, bg=ACCENT, width=w, anchor="w"
                      ).pack(side="left", padx=10, pady=8)
+
+        if not self.products:
+            tk.Label(container, text="No slots match the selected worker filter.",
+                     font=("Segoe UI", 10), fg=TEXT_LIGHT, bg=BG_MAIN
+                     ).pack(pady=20)
+            return
 
         # One row per slot
         for i, p in enumerate(self.products):
@@ -638,9 +719,118 @@ class UpdateInventoryScreen(tk.Frame):
         btn.bind("<Enter>", lambda e: btn.configure(bg=ACCENT_HOV))
         btn.bind("<Leave>", lambda e: btn.configure(bg=ACCENT))
 
+        add_btn = tk.Button(footer, text="➕  Add New Item",
+                            font=("Segoe UI", 10),
+                            bg=GREEN_BG, fg=GREEN, activebackground=GREEN_BG,
+                            activeforeground=GREEN, relief="flat", bd=0,
+                            cursor="hand2", padx=16, command=self._add_new_item_dialog)
+        add_btn.pack(side="right", padx=(0, 8), pady=12)
+
         self.status_label = tk.Label(footer, text="", font=("Segoe UI", 10),
                                      fg=GREEN, bg=BG_WHITE)
         self.status_label.pack(side="left", padx=20)
+
+    def _add_new_item_dialog(self):
+        """Opens a popup dialog to add a brand-new product to a new machine slot."""
+        dlg = tk.Toplevel(self, bg=BG_WHITE)
+        dlg.title("Add New Item")
+        dlg.geometry("420x520")
+        dlg.resizable(False, True)
+        dlg.grab_set()
+
+        # Scrollable canvas wrapper
+        _canvas = tk.Canvas(dlg, bg=BG_WHITE, highlightthickness=0)
+        _sb = ttk.Scrollbar(dlg, orient="vertical", command=_canvas.yview)
+        _canvas.configure(yscrollcommand=_sb.set)
+        _sb.pack(side="right", fill="y")
+        _canvas.pack(side="left", fill="both", expand=True)
+
+        pad = tk.Frame(_canvas, bg=BG_WHITE)
+        _win = _canvas.create_window((0, 0), window=pad, anchor="nw")
+
+        def _on_pad_configure(e):
+            _canvas.configure(scrollregion=_canvas.bbox("all"))
+        def _on_canvas_configure(e):
+            _canvas.itemconfigure(_win, width=e.width)
+        def _on_mousewheel(e):
+            _canvas.yview_scroll(int(-1 * (e.delta / 120)), "units")
+
+        pad.bind("<Configure>", _on_pad_configure)
+        _canvas.bind("<Configure>", _on_canvas_configure)
+        dlg.bind("<MouseWheel>", _on_mousewheel)
+
+        # Inner content uses padx/pady via pack
+        inner = tk.Frame(pad, bg=BG_WHITE)
+        inner.pack(fill="both", expand=True, padx=28, pady=20)
+
+        tk.Label(inner, text="Add New Product to Slot",
+                 font=("Segoe UI", 13, "bold"), fg=TEXT_DARK, bg=BG_WHITE).pack(anchor="w")
+        tk.Label(inner, text="Creates a new product and assigns it to a slot.",
+                 font=("Segoe UI", 9), fg=TEXT_LIGHT, bg=BG_WHITE).pack(anchor="w", pady=(2, 10))
+        tk.Frame(inner, bg=BORDER, height=1).pack(fill="x", pady=(0, 8))
+
+        # Alias so the rest of the method still refers to `pad`
+        pad = inner
+
+        slot_var  = tk.StringVar()
+        name_var  = tk.StringVar()
+        price_var = tk.StringVar()
+        max_var   = tk.StringVar()
+        thr_var   = tk.StringVar()
+
+        labeled_entry(pad, "Slot Code *",          var=slot_var,  bg=BG_WHITE)
+        labeled_entry(pad, "Product Name *",        var=name_var,  bg=BG_WHITE)
+        labeled_entry(pad, "Price ($) *",           var=price_var, bg=BG_WHITE)
+        labeled_entry(pad, "Max Quantity *",        var=max_var,   bg=BG_WHITE)
+        labeled_entry(pad, "Restock Threshold",     var=thr_var,   bg=BG_WHITE)
+
+        desc_label = tk.Label(pad, text="Description", font=("Segoe UI", 10, "bold"),
+                              fg=TEXT_MID, bg=BG_WHITE)
+        desc_label.pack(anchor="w", pady=(10, 2))
+        desc_text = tk.Text(pad, font=("Segoe UI", 10), bg=BG_SIDEBAR, fg=TEXT_DARK,
+                            relief="flat", bd=0, height=3, wrap="word",
+                            highlightthickness=1, highlightbackground=BORDER,
+                            highlightcolor=ACCENT)
+        desc_text.pack(fill="x", ipady=4)
+
+        status_lbl = tk.Label(pad, text="", font=("Segoe UI", 9),
+                              fg=RED, bg=BG_WHITE, wraplength=360, justify="left")
+        status_lbl.pack(anchor="w", pady=(6, 0))
+
+        def _submit():
+            slot  = slot_var.get().strip().upper()
+            name  = name_var.get().strip()
+            price = price_var.get().strip()
+            maxq  = max_var.get().strip()
+            thr   = thr_var.get().strip() or "0"
+            desc  = desc_text.get("1.0", "end").strip()
+
+            if not slot or not name or not price or not maxq:
+                status_lbl.configure(text="Slot Code, Name, Price, and Max Qty are required.", fg=RED)
+                return
+            try:
+                price_f = float(price)
+                maxq_i  = int(maxq)
+                thr_f   = float(thr)
+            except ValueError:
+                status_lbl.configure(text="Price and Max Qty must be valid numbers.", fg=RED)
+                return
+
+            try:
+                db_connection.add_product_to_slot(slot, name, price_f, desc, maxq_i, thr_f)
+            except Exception as e:
+                status_lbl.configure(text=f"Database error: {e}", fg=RED)
+                return
+
+            dlg.destroy()
+            self.destroy()
+            self.master.show_inventory()
+
+        btn = tk.Button(pad, text="Add Item  ▶", font=("Segoe UI", 11, "bold"),
+                        bg=ACCENT, fg=BG_WHITE, activebackground=ACCENT_HOV,
+                        activeforeground=BG_WHITE, relief="flat", bd=0,
+                        cursor="hand2", pady=10, command=_submit)
+        btn.pack(fill="x", pady=(12, 0))
 
     def _apply_restock(self):
         """Validates all Add Qty inputs and writes valid updates to the database.
@@ -687,6 +877,10 @@ class UpdateInventoryScreen(tk.Frame):
 class MaintenanceRequestScreen(tk.Frame):
     def __init__(self, master):
         super().__init__(master, bg=BG_MAIN)
+        try:
+            self.workers = db_connection.get_service_workers(master.machine_id)
+        except Exception:
+            self.workers = []
         self._build()
 
     def _build(self):
@@ -720,10 +914,19 @@ class MaintenanceRequestScreen(tk.Frame):
                            selectcolor=ACCENT_LT, activebackground=BG_WHITE
                            ).pack(anchor="w", pady=3)
 
-        # Reason text area and worker ID field
-        self.reason_entry  = labeled_entry(pad, "Reason for Request", height=4, bg=BG_WHITE)
-        self.worker_id_var = tk.StringVar()
-        labeled_entry(pad, "Your Worker ID", var=self.worker_id_var, bg=BG_WHITE)
+        # Reason text area and worker selector
+        self.reason_entry = labeled_entry(pad, "Reason for Request", height=4, bg=BG_WHITE)
+
+        tk.Label(pad, text="Your Worker", font=("Segoe UI", 10, "bold"),
+                 fg=TEXT_MID, bg=BG_WHITE).pack(anchor="w", pady=(10, 2))
+        self.worker_var = tk.StringVar()
+        worker_options = [f"{w['Name']} (ID: {w['WorkerID']})" for w in self.workers]
+        self.worker_combo = ttk.Combobox(pad, textvariable=self.worker_var,
+                                         values=worker_options, state="readonly",
+                                         font=("Segoe UI", 11))
+        self.worker_combo.pack(fill="x", ipady=4)
+        if worker_options:
+            self.worker_combo.set(worker_options[0])
 
         action_button(pad, "Submit Request  ▶", self._submit)
 
@@ -734,15 +937,22 @@ class MaintenanceRequestScreen(tk.Frame):
 
     def _submit(self):
         """Validates form and writes a new maintenance request to the database."""
-        reason    = self.reason_entry.get("1.0", "end").strip()
-        worker_id = self.worker_id_var.get().strip()
+        reason   = self.reason_entry.get("1.0", "end").strip()
+        selected = self.worker_var.get()
 
         if not reason:
             messagebox.showwarning("Missing Info", "Please describe the reason for the request.")
             return
-        if not worker_id:
-            messagebox.showwarning("Missing Info", "Please enter your Worker ID.")
+        if not selected:
+            messagebox.showwarning("Missing Info", "Please select a worker.")
             return
+
+        worker = next((w for w in self.workers
+                       if f"{w['Name']} (ID: {w['WorkerID']})" == selected), None)
+        if not worker:
+            messagebox.showerror("Error", "Invalid worker selection.")
+            return
+        worker_id = worker["WorkerID"]
 
         try:
             req_id = db_connection.create_maintenance_request(
@@ -762,11 +972,10 @@ class MaintenanceRequestScreen(tk.Frame):
             text=(f"✅  Request submitted\n{'─'*34}\n"
                   f"Request ID:  MR-{req_id}\n"
                   f"Type:        {type_label}\n"
-                  f"Worker ID:   {worker_id}\n"
+                  f"Worker:      {selected}\n"
                   f"Time:        {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n"
                   f"Status:      Pending — a technician will be assigned shortly."))
         self.reason_entry.delete("1.0", "end")
-        self.worker_id_var.set("")
 
 
 # ═══════════════════════════════════════════════════════════════
@@ -786,32 +995,79 @@ class MaintenanceTicketsScreen(tk.Frame):
             messagebox.showerror("Database Error", f"Could not load tickets:\n{e}")
             self.tickets = []
 
+        try:
+            self.workers = db_connection.get_service_workers(master.machine_id)
+        except Exception:
+            self.workers = []
+
+        self.filtered_tickets = list(self.tickets)
         self._build()
 
     def _build(self):
         screen_header(self, "✅  Close Maintenance Ticket",
                       self.master.show_home, self.master.machine_info)
 
+        # Filter bar above the two-column layout
+        self._filter_bar()
+
         main = tk.Frame(self, bg=BG_MAIN)
         main.pack(fill="both", expand=True, padx=20, pady=16)
 
         # Left: list of open tickets  |  Right: resolution form
-        left = tk.Frame(main, bg=BG_MAIN)
+        self._left_frame = tk.Frame(main, bg=BG_MAIN)
         right = tk.Frame(main, bg=BG_WHITE, width=320,
                          highlightthickness=1, highlightbackground=BORDER)
-        left.pack(side="left", fill="both", expand=True, padx=(0, 16))
+        self._left_frame.pack(side="left", fill="both", expand=True, padx=(0, 16))
         right.pack(side="right", fill="y")
 
-        self._ticket_list(left)
+        self._ticket_list(self._left_frame)
         self._resolution_form(right)
 
+    def _filter_bar(self):
+        bar = tk.Frame(self, bg=BG_WHITE, height=40,
+                       highlightthickness=1, highlightbackground=BORDER)
+        bar.pack(fill="x")
+        bar.pack_propagate(False)
+
+        tk.Label(bar, text="Filter by worker:", font=("Segoe UI", 9),
+                 fg=TEXT_MID, bg=BG_WHITE).pack(side="left", padx=(16, 6), pady=10)
+
+        self.filter_var = tk.StringVar(value="All Workers")
+        options = ["All Workers"] + [f"{w['Name']} (ID: {w['WorkerID']})" for w in self.workers]
+        cb = ttk.Combobox(bar, textvariable=self.filter_var, values=options,
+                          state="readonly", font=("Segoe UI", 9), width=28)
+        cb.pack(side="left", pady=8)
+        cb.bind("<<ComboboxSelected>>", self._on_filter_change)
+
+    def _on_filter_change(self, event=None):
+        selected = self.filter_var.get()
+        if selected == "All Workers":
+            self.filtered_tickets = list(self.tickets)
+        else:
+            worker = next((w for w in self.workers
+                           if f"{w['Name']} (ID: {w['WorkerID']})" == selected), None)
+            if worker:
+                wid = worker["WorkerID"]
+                self.filtered_tickets = [t for t in self.tickets
+                                          if t["ServiceWorkerID"] == wid]
+            else:
+                self.filtered_tickets = list(self.tickets)
+
+        # Rebuild just the ticket list panel
+        for w in self._left_frame.winfo_children():
+            w.destroy()
+        self.selected_ticket = None
+        if hasattr(self, "selected_label"):
+            self.selected_label.configure(text="No ticket selected.", fg=TEXT_LIGHT)
+        self._ticket_list(self._left_frame)
+
     def _ticket_list(self, parent):
-        """Renders all open tickets as clickable white cards."""
+        """Renders filtered open tickets as clickable white cards."""
         tk.Label(parent, text="Open Tickets",
                  font=("Segoe UI", 11, "bold"), fg=TEXT_MID, bg=BG_MAIN
                  ).pack(anchor="w", pady=(0, 10))
 
-        if not self.tickets:
+        if not self.filtered_tickets:
             ok = tk.Frame(parent, bg=GREEN_BG,
                           highlightthickness=1, highlightbackground=GREEN)
             ok.pack(fill="x")
@@ -821,7 +1077,7 @@ class MaintenanceTicketsScreen(tk.Frame):
                      ).pack(padx=16, pady=14)
             return
 
-        for t in self.tickets:
+        for t in self.filtered_tickets:
             self._ticket_card(parent, t)
 
     def _ticket_card(self, parent, t):
@@ -876,8 +1132,17 @@ class MaintenanceTicketsScreen(tk.Frame):
         self.selected_label.pack(anchor="w", pady=(0, 14))
 
         self.notes_entry = labeled_entry(pad, "Service Notes", height=4, bg=BG_WHITE)
-        self.tech_id_var = tk.StringVar()
-        labeled_entry(pad, "Technician ID", var=self.tech_id_var, bg=BG_WHITE)
+
+        tk.Label(pad, text="Technician", font=("Segoe UI", 10, "bold"),
+                 fg=TEXT_MID, bg=BG_WHITE).pack(anchor="w", pady=(10, 2))
+        self.tech_var = tk.StringVar()
+        tech_options = [f"{w['Name']} (ID: {w['WorkerID']})" for w in self.workers]
+        self.tech_combo = ttk.Combobox(pad, textvariable=self.tech_var,
+                                       values=tech_options, state="readonly",
+                                       font=("Segoe UI", 11))
+        self.tech_combo.pack(fill="x", ipady=4)
+        if tech_options:
+            self.tech_combo.set(tech_options[0])
 
         action_button(pad, "Close Ticket  ▶", self._close_ticket)
 
@@ -899,39 +1164,40 @@ class MaintenanceTicketsScreen(tk.Frame):
             messagebox.showwarning("No Ticket", "Please select a ticket to close.")
             return
 
-        notes   = self.notes_entry.get("1.0", "end").strip()
-        tech_id = self.tech_id_var.get().strip()
+        notes    = self.notes_entry.get("1.0", "end").strip()
+        selected = self.tech_var.get()
 
         if not notes:
             messagebox.showwarning("Missing Info", "Please enter service notes.")
             return
-        if not tech_id:
-            messagebox.showwarning("Missing Info", "Please enter your Technician ID.")
+        if not selected:
+            messagebox.showwarning("Missing Info", "Please select a technician.")
+            return
+
+        worker = next((w for w in self.workers
+                       if f"{w['Name']} (ID: {w['WorkerID']})" == selected), None)
+        if not worker:
+            messagebox.showerror("Error", "Invalid technician selection.")
             return
 
         date_resolved = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        req_id = self.selected_ticket["MaintenanceRequestID"]
 
         try:
             db_connection.close_maintenance_request(
-                request_id=self.selected_ticket["MaintenanceRequestID"],
-                date_resolved=date_resolved, notes=notes)
+                request_id=req_id, date_resolved=date_resolved, notes=notes)
             # System-triggered: restore machine to ONLINE after repair is complete
             db_connection.update_machine_status(self.master.machine_id, "ONLINE")
         except Exception as e:
             messagebox.showerror("Database Error", f"Could not close ticket:\n{e}")
             return
 
-        self.confirm_label.configure(
-            text=(f"✅  Ticket closed\n{'─'*28}\n"
-                  f"Request ID:  MR-{self.selected_ticket['MaintenanceRequestID']}\n"
-                  f"Technician:  {tech_id}\n"
-                  f"Resolved:    {date_resolved}\n"
-                  f"Machine status → ONLINE"))
-
-        self.selected_ticket = None
-        self.selected_label.configure(text="No ticket selected.", fg=TEXT_LIGHT)
-        self.notes_entry.delete("1.0", "end")
-        self.tech_id_var.set("")
+        messagebox.showinfo("Ticket Closed",
+                            f"✅  Ticket closed\n{'─'*28}\n"
+                            f"Request ID:  MR-{req_id}\n"
+                            f"Technician:  {selected}\n"
+                            f"Resolved:    {date_resolved}\n"
+                            f"Machine status → ONLINE")
         self.destroy()
         self.master.show_maintenance_tickets()
 
@@ -951,6 +1217,16 @@ class UpdateCashLevelScreen(tk.Frame):
         except Exception as e:
             messagebox.showerror("Database Error", f"Could not load cash data:\n{e}")
             self.money_info = None
+
+        try:
+            self.currency_breakdown = db_connection.get_currency_breakdown(self.master.machine_id)
+        except Exception:
+            self.currency_breakdown = []
+
+        try:
+            self.workers = db_connection.get_service_workers(master.machine_id)
+        except Exception:
+            self.workers = []
 
         self._build()
 
@@ -1005,6 +1281,44 @@ class UpdateCashLevelScreen(tk.Frame):
             tk.Label(pad, text="Could not load cash data from database.",
                      font=("Segoe UI", 10), fg=RED, bg=BG_WHITE).pack(anchor="w")
 
+        if self.currency_breakdown:
+            tk.Label(pad, text="Current Denomination Levels",
+                     font=("Segoe UI", 11, "bold"), fg=TEXT_DARK, bg=BG_WHITE
+                     ).pack(anchor="w", pady=(16, 4))
+            col_hdr = tk.Frame(pad, bg=ACCENT, height=28)
+            col_hdr.pack(fill="x")
+            col_hdr.pack_propagate(False)
+            for h, w in [("Denomination", 24), ("Type", 12), ("Count", 10)]:
+                tk.Label(col_hdr, text=h, font=("Segoe UI", 8, "bold"),
+                         fg=BG_WHITE, bg=ACCENT, width=w, anchor="w"
+                         ).pack(side="left", padx=8, pady=4)
+            for i, denom in enumerate(self.currency_breakdown):
+                bg = BG_WHITE if i % 2 == 0 else BG_SIDEBAR
+                worth = float(denom.get("CurrencyWorth") or 0)
+                label = f"${worth:.2f}" if worth >= 1.0 else f"{int(worth * 100)}¢"
+                type_label = "Bill" if worth >= 1.0 else "Coin"
+                row = tk.Frame(pad, bg=bg, height=30)
+                row.pack(fill="x")
+                row.pack_propagate(False)
+                tk.Label(row, text=label, font=("Segoe UI", 9),
+                         fg=TEXT_DARK, bg=bg, width=24, anchor="w").pack(side="left", padx=8, pady=4)
+                tk.Label(row, text=type_label, font=("Segoe UI", 9),
+                         fg=TEXT_MID, bg=bg, width=12, anchor="w").pack(side="left", padx=4)
+                tk.Label(row, text=str(denom.get("CurrentAmount", 0)), font=("Segoe UI", 9, "bold"),
+                         fg=TEXT_DARK, bg=bg, width=10, anchor="w").pack(side="left", padx=4)
+
+        total_cash = sum(
+            float(d.get("CurrencyWorth") or 0) * int(d.get("CurrentAmount") or 0)
+            for d in self.currency_breakdown
+        )
+        total_row = tk.Frame(pad, bg=ACCENT_LT,
+                             highlightthickness=1, highlightbackground=ACCENT)
+        total_row.pack(fill="x", pady=(6, 0))
+        tk.Label(total_row, text="Total Cash in Machine", font=("Segoe UI", 10, "bold"),
+                 fg=ACCENT, bg=ACCENT_LT, width=24, anchor="w").pack(side="left", padx=14, pady=8)
+        tk.Label(total_row, text=f"${total_cash:.2f}", font=("Segoe UI", 11, "bold"),
+                 fg=TEXT_DARK, bg=ACCENT_LT).pack(side="right", padx=14)
+
     def _action_form(self, parent):
         """Right-side form for logging a cash collection or change refill."""
         pad = tk.Frame(parent, bg=BG_WHITE)
@@ -1027,10 +1341,19 @@ class UpdateCashLevelScreen(tk.Frame):
                            selectcolor=ACCENT_LT, activebackground=BG_WHITE
                            ).pack(anchor="w", pady=3)
 
-        self.amount_var    = tk.DoubleVar()
-        self.worker_id_var = tk.StringVar()
-        labeled_entry(pad, "Amount ($)",     var=self.amount_var,    bg=BG_WHITE)
-        labeled_entry(pad, "Your Worker ID", var=self.worker_id_var, bg=BG_WHITE)
+        self.amount_var = tk.DoubleVar()
+        labeled_entry(pad, "Amount ($)", var=self.amount_var, bg=BG_WHITE)
+
+        tk.Label(pad, text="Your Worker", font=("Segoe UI", 10, "bold"),
+                 fg=TEXT_MID, bg=BG_WHITE).pack(anchor="w", pady=(10, 2))
+        self.worker_var = tk.StringVar()
+        worker_options = [f"{w['Name']} (ID: {w['WorkerID']})" for w in self.workers]
+        self.worker_combo = ttk.Combobox(pad, textvariable=self.worker_var,
+                                         values=worker_options, state="readonly",
+                                         font=("Segoe UI", 11))
+        self.worker_combo.pack(fill="x", ipady=4)
+        if worker_options:
+            self.worker_combo.set(worker_options[0])
 
         action_button(pad, "Apply Cash Update  ▶", self._apply)
 
@@ -1041,16 +1364,23 @@ class UpdateCashLevelScreen(tk.Frame):
 
     def _apply(self):
         """Validates input and writes the cash collection or refill to the database."""
-        amount    = self.amount_var.get()
-        worker_id = self.worker_id_var.get().strip()
-        action    = self.action_type.get()
+        amount   = self.amount_var.get()
+        selected = self.worker_var.get()
+        action   = self.action_type.get()
 
         if amount <= 0:
             messagebox.showwarning("Invalid Amount", "Please enter an amount greater than $0.")
             return
-        if not worker_id:
-            messagebox.showwarning("Missing Info", "Please enter your Worker ID.")
+        if not selected:
+            messagebox.showwarning("Missing Info", "Please select a worker.")
             return
+
+        worker = next((w for w in self.workers
+                       if f"{w['Name']} (ID: {w['WorkerID']})" == selected), None)
+        if not worker:
+            messagebox.showerror("Error", "Invalid worker selection.")
+            return
+        worker_id = worker["WorkerID"]
 
         try:
             if action == "collect":
@@ -1076,10 +1406,12 @@ class UpdateCashLevelScreen(tk.Frame):
         self.confirm_label.configure(
             text=(f"✅  {action_label}\n{'─'*30}\n"
                   f"Amount:      ${amount:.2f}\n"
-                  f"Worker ID:   {worker_id}\n"
+                  f"Worker:      {selected}\n"
                   f"Time:        {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}"))
         self.amount_var.set(0.0)
-        self.worker_id_var.set("")
+        # Reload the screen so the updated Cash Total is immediately visible
+        self.destroy()
+        self.master.show_cash_level()
 
 
 # ═══════════════════════════════════════════════════════════════
@@ -1111,6 +1443,18 @@ class UpdateMachineInfoScreen(tk.Frame):
                  ).pack(anchor="w", pady=(2, 18))
         tk.Frame(pad, bg=BORDER, height=1).pack(fill="x", pady=(0, 12))
 
+        # Read-only: Date Last Serviced
+        m = self.machine or {}
+        date_val = m.get("DateLastServiced", "N/A")
+        info_row = tk.Frame(pad, bg=BG_SIDEBAR,
+                            highlightthickness=1, highlightbackground=BORDER)
+        info_row.pack(fill="x", pady=(0, 12))
+        tk.Label(info_row, text="Date Last Serviced", font=("Segoe UI", 10),
+                 fg=TEXT_MID, bg=BG_SIDEBAR, width=22, anchor="w"
+                 ).pack(side="left", padx=14, pady=8)
+        tk.Label(info_row, text=str(date_val), font=("Segoe UI", 10, "bold"),
+                 fg=TEXT_DARK, bg=BG_SIDEBAR).pack(side="left", padx=4)
+
         # Two-column layout for the editable fields
         cols     = tk.Frame(pad, bg=BG_WHITE)
         cols.pack(fill="x")
@@ -1120,24 +1464,27 @@ class UpdateMachineInfoScreen(tk.Frame):
         right_col.pack(side="right", fill="both", expand=True)
 
         self.fields = {}
-        m = self.machine or {}
 
         for display, db_key, current in [
-            ("Address",           "Address",         m.get("Address", "")),
-            ("Model Number",      "ModelNumber",      m.get("ModelNumber", "")),
-            ("Max Product Slots", "MaxProductSlots",  str(m.get("MaxProductSlots", ""))),
+            ("Address",      "Address",     m.get("Address", "")),
+            ("Model Number", "ModelNumber", m.get("ModelNumber", "")),
         ]:
             var = tk.StringVar(value=current)
             labeled_entry(left_col, display, var=var, bg=BG_WHITE)
             self.fields[db_key] = var
 
-        for display, db_key, current in [
-            ("Days Between Services", "DaysBetweenServices", str(m.get("DaysBetweenServices", ""))),
-            ("Current State",         "CurrentState",         m.get("CurrentState", "")),
-        ]:
-            var = tk.StringVar(value=current)
-            labeled_entry(right_col, display, var=var, bg=BG_WHITE)
-            self.fields[db_key] = var
+        days_var = tk.StringVar(value=str(m.get("DaysBetweenServices", "")))
+        labeled_entry(right_col, "Days Between Services", var=days_var, bg=BG_WHITE)
+        self.fields["DaysBetweenServices"] = days_var
+
+        state_var = tk.StringVar(value=m.get("CurrentState", "ONLINE"))
+        tk.Label(right_col, text="Current State", font=("Segoe UI", 10, "bold"),
+                 fg=TEXT_MID, bg=BG_WHITE).pack(anchor="w", pady=(10, 2))
+        state_cb = ttk.Combobox(right_col, textvariable=state_var,
+                                values=["ONLINE", "OFFLINE", "SCHEDULED", "MAINTENANCE"],
+                                state="readonly", font=("Segoe UI", 10))
+        state_cb.pack(fill="x", ipady=4)
+        self.fields["CurrentState"] = state_var
 
         action_button(pad, "Save Changes  ▶", self._save)
 
@@ -1159,7 +1506,7 @@ class UpdateMachineInfoScreen(tk.Frame):
                 machine_id=self.master.machine_id,
                 address=data["Address"],
                 model_number=data["ModelNumber"],
-                max_slots=data["MaxProductSlots"],
+                max_slots=self.machine.get("MaxProductSlots", 0) if self.machine else 0,
                 days_between_services=data["DaysBetweenServices"],
                 current_state=data["CurrentState"])
             # Refresh the cached machine info so the header updates immediately
@@ -1172,10 +1519,382 @@ class UpdateMachineInfoScreen(tk.Frame):
             text=(f"✅  Machine profile updated\n{'─'*36}\n"
                   f"Address:      {data['Address']}\n"
                   f"Model:        {data['ModelNumber']}\n"
-                  f"Max Slots:    {data['MaxProductSlots']}\n"
                   f"Service Int.: {data['DaysBetweenServices']} days\n"
                   f"State:        {data['CurrentState']}\n"
                   f"Saved:        {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}"))
+
+
+# ═══════════════════════════════════════════════════════════════
+# View Transactions Screen
+# Admin reviews all past sales with revenue/tax/cash summary totals.
+# ═══════════════════════════════════════════════════════════════
+class ViewTransactionsScreen(tk.Frame):
+    def __init__(self, master):
+        super().__init__(master, bg=BG_MAIN)
+
+        try:
+            self.rows, self.totals = db_connection.get_all_transactions(self.master.machine_id)
+        except Exception as e:
+            messagebox.showerror("Database Error", f"Could not load transactions:\n{e}")
+            self.rows, self.totals = [], {}
+
+        try:
+            self.current_cash = db_connection.get_total_cash_in_machine(self.master.machine_id)
+        except Exception:
+            self.current_cash = 0.0
+
+        self._build()
+
+    def _build(self):
+        screen_header(self, "📊  View Transactions",
+                      self.master.show_home, self.master.machine_info)
+        self._summary_bar()
+        self._table()
+
+    def _summary_bar(self):
+        """Thin colored banner showing aggregate totals."""
+        bar = tk.Frame(self, bg=ACCENT_LT, highlightthickness=1, highlightbackground=BORDER)
+        bar.pack(fill="x", padx=20, pady=(14, 0))
+
+        t = self.totals or {}
+        rev  = t.get("total_revenue") or 0.0
+        tax  = t.get("total_tax")     or 0.0
+
+        for label, val in [
+            ("Total Revenue", f"${rev:.2f}"),
+            ("Total Tax",     f"${tax:.2f}"),
+            ("Cash In Machine", f"${self.current_cash:.2f}"),
+            ("Transactions",  str(len(self.rows))),
+        ]:
+            cell = tk.Frame(bar, bg=ACCENT_LT)
+            cell.pack(side="left", padx=28, pady=10)
+            tk.Label(cell, text=label, font=("Segoe UI", 8),
+                     fg=ACCENT, bg=ACCENT_LT).pack(anchor="w")
+            tk.Label(cell, text=val, font=("Segoe UI", 12, "bold"),
+                     fg=TEXT_DARK, bg=ACCENT_LT).pack(anchor="w")
+
+    def _table(self):
+        """Scrollable table of all transaction rows."""
+        container = tk.Frame(self, bg=BG_MAIN)
+        container.pack(fill="both", expand=True, padx=20, pady=12)
+
+        # Header
+        hdr = tk.Frame(container, bg=ACCENT, height=34)
+        hdr.pack(fill="x")
+        hdr.pack_propagate(False)
+        for h, w in zip(["#", "Date / Time", "Product", "Price", "Tax", "Total", "Method"],
+                        [5,    20,             20,         8,       7,     8,       10]):
+            tk.Label(hdr, text=h, font=("Segoe UI", 9, "bold"),
+                     fg=BG_WHITE, bg=ACCENT, width=w, anchor="w"
+                     ).pack(side="left", padx=8, pady=8)
+
+        # Scrollable body
+        scroll_frame = tk.Frame(container, bg=BG_MAIN)
+        scroll_frame.pack(fill="both", expand=True)
+
+        canvas = tk.Canvas(scroll_frame, bg=BG_MAIN, highlightthickness=0)
+        scrollbar = ttk.Scrollbar(scroll_frame, orient="vertical", command=canvas.yview)
+        body = tk.Frame(canvas, bg=BG_MAIN)
+
+        win_id = canvas.create_window((0, 0), window=body, anchor="nw")
+        canvas.configure(yscrollcommand=scrollbar.set)
+
+        canvas.bind("<Configure>", lambda e: canvas.itemconfigure(win_id, width=e.width))
+        body.bind("<Configure>", lambda e: canvas.configure(scrollregion=canvas.bbox("all")))
+
+        scrollbar.pack(side="right", fill="y")
+        canvas.pack(side="left", fill="both", expand=True)
+
+        def _scroll(e):
+            canvas.yview_scroll(int(-1 * (e.delta / 120)), "units")
+
+        self.master.bind_all("<MouseWheel>", _scroll)
+        self._scroll_canvas = canvas
+
+        if not self.rows:
+            tk.Label(body, text="No transactions recorded yet.",
+                     font=("Segoe UI", 10), fg=TEXT_LIGHT, bg=BG_MAIN
+                     ).pack(pady=24)
+            body.update_idletasks()
+            canvas.configure(scrollregion=canvas.bbox("all"))
+            return
+
+        for i, row in enumerate(self.rows):
+            bg = BG_WHITE if i % 2 == 0 else BG_SIDEBAR
+            price = float(row["Price"]) if row["Price"] else 0.0
+            tax   = float(row["Tax"])   if row["Tax"]   else 0.0
+            total = price + tax
+
+            if row["CashGiven"] is not None:
+                method = "💵 Cash"
+            else:
+                method = "💳 Card"
+
+            dt = str(row["SaleDateTime"])[:16]
+
+            tr = tk.Frame(body, bg=bg, height=34)
+            tr.pack(fill="x")
+            tr.pack_propagate(False)
+
+            for val, w in zip([
+                str(row["SaleNumber"]),
+                dt,
+                row["ProductName"] or "—",
+                f"${price:.2f}",
+                f"${tax:.2f}",
+                f"${total:.2f}",
+                method,
+            ], [5, 20, 20, 8, 7, 8, 10]):
+                tk.Label(tr, text=val, font=("Segoe UI", 9),
+                         fg=TEXT_DARK, bg=bg, width=w, anchor="w"
+                         ).pack(side="left", padx=8)
+
+        body.update_idletasks()
+        canvas.configure(scrollregion=canvas.bbox("all"))
+
+    def destroy(self):
+        try:
+            self.master.unbind_all("<MouseWheel>")
+        except Exception:
+            pass
+        super().destroy()
+
+
+# ═══════════════════════════════════════════════════════════════
+# Manage Workers Screen
+# Admin views, adds, edits, and removes service workers.
+# ═══════════════════════════════════════════════════════════════
+class ManageWorkersScreen(tk.Frame):
+    def __init__(self, master):
+        super().__init__(master, bg=BG_MAIN)
+        self._editing_id = None
+        self._worker_canvas = None
+        self._load_workers()
+        self._build()
+        self.master.bind_all("<MouseWheel>", self._on_scroll)
+
+    def _on_scroll(self, e):
+        if self._worker_canvas:
+            self._worker_canvas.yview_scroll(int(-1 * (e.delta / 120)), "units")
+
+    def destroy(self):
+        try:
+            self.master.unbind_all("<MouseWheel>")
+        except Exception:
+            pass
+        super().destroy()
+
+    def _load_workers(self):
+        try:
+            self.workers = db_connection.get_all_service_workers()
+        except Exception as e:
+            messagebox.showerror("Database Error", f"Could not load workers:\n{e}")
+            self.workers = []
+
+    def _build(self):
+        screen_header(self, "👷  Manage Workers",
+                      self.master.show_home, self.master.machine_info)
+
+        main = tk.Frame(self, bg=BG_MAIN)
+        main.pack(fill="both", expand=True, padx=20, pady=16)
+
+        self._left = tk.Frame(main, bg=BG_WHITE,
+                              highlightthickness=1, highlightbackground=BORDER)
+        self._left.pack(side="left", fill="both", expand=True, padx=(0, 16))
+
+        right = tk.Frame(main, bg=BG_WHITE, width=310,
+                         highlightthickness=1, highlightbackground=BORDER)
+        right.pack(side="right", fill="y")
+        right.pack_propagate(False)
+
+        self._build_table()
+        self._build_form(right)
+
+    def _build_table(self):
+        for w in self._left.winfo_children():
+            w.destroy()
+
+        pad = tk.Frame(self._left, bg=BG_WHITE)
+        pad.pack(fill="both", expand=True, padx=20, pady=20)
+
+        tk.Label(pad, text="Service Workers",
+                 font=("Segoe UI", 13, "bold"), fg=TEXT_DARK, bg=BG_WHITE).pack(anchor="w")
+        tk.Label(pad, text=f"{len(self.workers)} worker(s) assigned to this machine.",
+                 font=("Segoe UI", 9), fg=TEXT_LIGHT, bg=BG_WHITE).pack(anchor="w", pady=(2, 10))
+        tk.Frame(pad, bg=BORDER, height=1).pack(fill="x", pady=(0, 8))
+
+        if not self.workers:
+            tk.Label(pad, text="No workers found. Add one using the form.",
+                     font=("Segoe UI", 10), fg=TEXT_LIGHT, bg=BG_WHITE).pack(pady=24)
+            return
+
+        col_hdr = tk.Frame(pad, bg=ACCENT, height=30)
+        col_hdr.pack(fill="x")
+        col_hdr.pack_propagate(False)
+        for h, w in [("ID", 4), ("Name", 15), ("Type", 12), ("Phone", 14), ("Actions", 14)]:
+            tk.Label(col_hdr, text=h, font=("Segoe UI", 9, "bold"),
+                     fg=BG_WHITE, bg=ACCENT, width=w, anchor="w"
+                     ).pack(side="left", padx=6, pady=4)
+
+        canvas = tk.Canvas(pad, bg=BG_WHITE, highlightthickness=0)
+        sb = ttk.Scrollbar(pad, orient="vertical", command=canvas.yview)
+        body = tk.Frame(canvas, bg=BG_WHITE)
+
+        win_id = canvas.create_window((0, 0), window=body, anchor="nw")
+        canvas.configure(yscrollcommand=sb.set)
+
+        canvas.bind("<Configure>", lambda e: canvas.itemconfigure(win_id, width=e.width))
+        body.bind("<Configure>", lambda e: canvas.configure(scrollregion=canvas.bbox("all")))
+
+        sb.pack(side="right", fill="y")
+        canvas.pack(side="left", fill="both", expand=True)
+        self._worker_canvas = canvas
+
+        for i, wk in enumerate(self.workers):
+            bg = BG_WHITE if i % 2 == 0 else BG_SIDEBAR
+            row = tk.Frame(body, bg=bg, height=36)
+            row.pack(fill="x")
+            row.pack_propagate(False)
+
+            for val, width in [
+                (str(wk["WorkerID"]),              4),
+                (wk.get("Name", "")        or "",  15),
+                (wk.get("WorkerType", "")  or "",  12),
+                (wk.get("PhoneNumber", "") or "",   14),
+            ]:
+                tk.Label(row, text=val, font=("Segoe UI", 9),
+                         fg=TEXT_DARK, bg=bg, width=width, anchor="w"
+                         ).pack(side="left", padx=6)
+
+            btn_frame = tk.Frame(row, bg=bg)
+            btn_frame.pack(side="left", padx=4)
+
+            tk.Button(btn_frame, text="Edit", font=("Segoe UI", 8),
+                      bg=ACCENT_LT, fg=ACCENT, relief="flat", bd=0,
+                      cursor="hand2", padx=6, pady=2,
+                      command=lambda wk=wk: self._edit_worker(wk)
+                      ).pack(side="left", padx=(0, 4))
+
+            tk.Button(btn_frame, text="Remove", font=("Segoe UI", 8),
+                      bg=RED_BG, fg=RED, relief="flat", bd=0,
+                      cursor="hand2", padx=6, pady=2,
+                      command=lambda wk=wk: self._remove_worker(wk)
+                      ).pack(side="left")
+
+        body.update_idletasks()
+        canvas.configure(scrollregion=canvas.bbox("all"))
+
+    def _build_form(self, parent):
+        pad = tk.Frame(parent, bg=BG_WHITE)
+        pad.pack(fill="both", expand=True, padx=20, pady=20)
+
+        self._form_title = tk.Label(pad, text="Add New Worker",
+                                    font=("Segoe UI", 13, "bold"), fg=TEXT_DARK, bg=BG_WHITE)
+        self._form_title.pack(anchor="w")
+        tk.Label(pad, text="* required", font=("Segoe UI", 8),
+                 fg=TEXT_LIGHT, bg=BG_WHITE).pack(anchor="w", pady=(0, 4))
+        tk.Frame(pad, bg=BORDER, height=1).pack(fill="x", pady=(0, 8))
+
+        self._name_var    = tk.StringVar()
+        self._type_var    = tk.StringVar()
+        self._phone_var   = tk.StringVar()
+        self._email_var   = tk.StringVar()
+        self._company_var = tk.StringVar()
+
+        labeled_entry(pad, "Name *", var=self._name_var, bg=BG_WHITE)
+
+        tk.Label(pad, text="Worker Type", font=("Segoe UI", 10, "bold"),
+                 fg=TEXT_MID, bg=BG_WHITE).pack(anchor="w", pady=(10, 2))
+        self._type_combo = ttk.Combobox(pad, textvariable=self._type_var,
+                                        values=["Restocker", "Technician", "Admin"],
+                                        font=("Segoe UI", 10))
+        self._type_combo.pack(fill="x", ipady=4)
+
+        labeled_entry(pad, "Phone Number", var=self._phone_var, bg=BG_WHITE)
+        labeled_entry(pad, "Email",        var=self._email_var, bg=BG_WHITE)
+        labeled_entry(pad, "Company",      var=self._company_var, bg=BG_WHITE)
+
+        self._save_btn = action_button(pad, "Add Worker  ▶", self._save_worker)
+
+        self._cancel_btn = tk.Button(pad, text="Clear Form", font=("Segoe UI", 10),
+                                     bg=BG_SIDEBAR, fg=TEXT_MID, relief="flat", bd=0,
+                                     cursor="hand2", pady=8, command=self._cancel_edit)
+        self._cancel_btn.pack(fill="x", pady=(6, 0))
+
+        self._status_lbl = tk.Label(pad, text="", font=("Segoe UI", 9),
+                                    fg=GREEN, bg=BG_WHITE, wraplength=260, justify="left")
+        self._status_lbl.pack(anchor="w", pady=(8, 0))
+
+    def _edit_worker(self, worker):
+        self._editing_id = worker["WorkerID"]
+        self._form_title.configure(text=f"Edit Worker — ID {worker['WorkerID']}")
+        self._name_var.set(worker.get("Name", "")        or "")
+        self._type_var.set(worker.get("WorkerType", "")  or "")
+        self._phone_var.set(worker.get("PhoneNumber", "") or "")
+        self._email_var.set(worker.get("Email", "")       or "")
+        self._company_var.set(worker.get("Company", "")   or "")
+        self._save_btn.configure(text="Save Changes  ▶")
+        self._cancel_btn.configure(text="Cancel Edit")
+        self._status_lbl.configure(text="")
+
+    def _cancel_edit(self):
+        self._editing_id = None
+        self._form_title.configure(text="Add New Worker")
+        self._name_var.set("")
+        self._type_var.set("")
+        self._phone_var.set("")
+        self._email_var.set("")
+        self._company_var.set("")
+        self._save_btn.configure(text="Add Worker  ▶")
+        self._cancel_btn.configure(text="Clear Form")
+        self._status_lbl.configure(text="")
+
+    def _save_worker(self):
+        name    = self._name_var.get().strip()
+        wtype   = self._type_var.get().strip()
+        phone   = self._phone_var.get().strip()
+        email   = self._email_var.get().strip()
+        company = self._company_var.get().strip()
+
+        if not name:
+            messagebox.showwarning("Missing Info", "Worker name is required.")
+            return
+
+        try:
+            if self._editing_id is None:
+                db_connection.add_service_worker(
+                    self.master.machine_id, name, wtype, phone, email, company)
+                msg = f"✅  Worker '{name}' added."
+            else:
+                db_connection.update_service_worker(
+                    self._editing_id, name, wtype, phone, email, company)
+                msg = f"✅  Worker '{name}' updated."
+        except Exception as e:
+            messagebox.showerror("Database Error", f"Could not save worker:\n{e}")
+            return
+
+        self._load_workers()
+        self._build_table()
+        self._cancel_edit()
+        self._status_lbl.configure(text=msg)
+
+    def _remove_worker(self, worker):
+        name = worker.get("Name") or f"ID {worker['WorkerID']}"
+        if not messagebox.askyesno("Confirm Remove",
+                                   f"Remove worker '{name}'?\n\n"
+                                   f"Warning: all maintenance tickets and restock requests "
+                                   f"assigned to this worker will also be permanently deleted."):
+            return
+        try:
+            db_connection.delete_service_worker(worker["WorkerID"])
+        except Exception as e:
+            messagebox.showerror("Cannot Remove Worker",
+                                 f"Could not delete worker.\n\nDatabase error:\n{e}")
+            return
+
+        self._load_workers()
+        self._build_table()
+        self._status_lbl.configure(text=f"✅  Worker '{name}' removed.")
 
 
 # ── App entry point ─────────────────────────────────────────────
