@@ -203,7 +203,7 @@ def record_card_sale(product_id, machine_id, tax, card_fee, account_charged):
 # Records a cash transaction in the database
 # Inserts a new row into the Transaction table with cash-specific fields
 # Card fields (CardFee, AccountCharged) are set to NULL for cash transactions
-def record_cash_sale(product_id, machine_id, tax, cash_given):
+def record_cash_sale(product_id, machine_id, tax, cash_given, price=0.0):
     conn = get_connection()
     cursor = conn.cursor()
 
@@ -212,8 +212,22 @@ def record_cash_sale(product_id, machine_id, tax, cash_given):
         VALUES (%s, %s, %s, %s, NULL, NULL, %s)
     """, (product_id, machine_id, tax, datetime.now(), cash_given))
 
-    conn.commit()
     sale_number = cursor.lastrowid
+
+    # Add net cash retained (price + tax) to the first bill denomination.
+    # CurrentAmount is INT so we round to the nearest dollar.
+    net_dollars = round(price + tax)
+    cursor.execute("""
+        UPDATE Currency
+        SET CurrentAmount = CurrentAmount + %s
+        WHERE MoneyHandlerID = (
+            SELECT MoneyHandlerID FROM MoneyHandler WHERE MachineID = %s LIMIT 1
+        )
+        AND CurrencyWorth >= 1.0
+        LIMIT 1
+    """, (net_dollars, machine_id))
+
+    conn.commit()
     cursor.close()
     conn.close()
     return sale_number
@@ -401,13 +415,24 @@ def record_cash_collection(machine_id, worker_id, amount_collected, date):
     # Insert a restock request to log the cash collection event with the worker and date
     cursor.execute("""
         INSERT INTO RestockRequest (ServiceWorkerID, MoneyHandlerID, DateRequested, DateResolved, ReasonForRequest)
-        SELECT %s, mh.MoneyHandlerID, %s, %s, %s
+        SELECT %s, mh.MoneyHandlerID, %s, NULL, %s
         FROM MoneyHandler mh
         WHERE mh.MachineID = %s
         LIMIT 1
-    """, (worker_id, date, date,
+    """, (worker_id, date,
           f"Cash collection: ${amount_collected:.2f} collected by worker {worker_id}.",
           machine_id))
+
+    # Subtract the collected dollar amount from bill denominations (don't go below 0)
+    cursor.execute("""
+        UPDATE Currency
+        SET CurrentAmount = GREATEST(0, CurrentAmount - %s)
+        WHERE MoneyHandlerID = (
+            SELECT MoneyHandlerID FROM MoneyHandler WHERE MachineID = %s LIMIT 1
+        )
+        AND CurrencyWorth >= 1.0
+        LIMIT 1
+    """, (round(amount_collected), machine_id))
 
     conn.commit()
     cursor.close()
@@ -424,13 +449,26 @@ def record_change_refill(machine_id, worker_id, amount_added, date):
     # Insert a restock request to log the change refill event
     cursor.execute("""
         INSERT INTO RestockRequest (ServiceWorkerID, MoneyHandlerID, DateRequested, DateResolved, ReasonForRequest)
-        SELECT %s, mh.MoneyHandlerID, %s, %s, %s
+        SELECT %s, mh.MoneyHandlerID, %s, NULL, %s
         FROM MoneyHandler mh
         WHERE mh.MachineID = %s
         LIMIT 1
-    """, (worker_id, date, date,
+    """, (worker_id, date,
           f"Change refill: ${amount_added:.2f} in coins added by worker {worker_id}.",
           machine_id))
+
+    # Add coins to the first coin denomination (CurrencyWorth < 1.0).
+    # amount_added is in dollars; divide by CurrencyWorth ($0.01) to get coin count.
+    coin_count = round(amount_added / 0.01)
+    cursor.execute("""
+        UPDATE Currency
+        SET CurrentAmount = CurrentAmount + %s
+        WHERE MoneyHandlerID = (
+            SELECT MoneyHandlerID FROM MoneyHandler WHERE MachineID = %s LIMIT 1
+        )
+        AND CurrencyWorth < 1.0
+        LIMIT 1
+    """, (coin_count, machine_id))
 
     conn.commit()
     cursor.close()
@@ -444,16 +482,23 @@ def resolve_cash_collection_alert(machine_id):
     conn = get_connection()
     cursor = conn.cursor()
 
-    # Find and resolve the most recent open cash-related restock request for this machine
+    # Subquery finds the most recent open cash-collection request ID for this machine;
+    # the outer UPDATE is single-table so ORDER BY + LIMIT are legal in MySQL.
     cursor.execute("""
-        UPDATE RestockRequest rr
-        JOIN MoneyHandler mh ON rr.MoneyHandlerID = mh.MoneyHandlerID
-        SET rr.DateResolved = %s
-        WHERE mh.MachineID = %s
-          AND rr.DateResolved IS NULL
-          AND rr.ReasonForRequest LIKE '%Cash collection%'
-        ORDER BY rr.RestockRequestID DESC
-        LIMIT 1
+        UPDATE RestockRequest
+        SET DateResolved = %s
+        WHERE RestockRequestID = (
+            SELECT id FROM (
+                SELECT rr.RestockRequestID AS id
+                FROM RestockRequest rr
+                JOIN MoneyHandler mh ON rr.MoneyHandlerID = mh.MoneyHandlerID
+                WHERE mh.MachineID = %s
+                  AND rr.DateResolved IS NULL
+                  AND rr.ReasonForRequest LIKE '%%Cash collection%%'
+                ORDER BY rr.RestockRequestID DESC
+                LIMIT 1
+            ) AS t
+        )
     """, (datetime.now().date(), machine_id))
 
     conn.commit()
@@ -468,21 +513,102 @@ def resolve_change_refill_alert(machine_id):
     conn = get_connection()
     cursor = conn.cursor()
 
-    # Find and resolve the most recent open change-related restock request for this machine
+    # Subquery finds the most recent open change-refill request ID for this machine;
+    # the outer UPDATE is single-table so ORDER BY + LIMIT are legal in MySQL.
     cursor.execute("""
-        UPDATE RestockRequest rr
-        JOIN MoneyHandler mh ON rr.MoneyHandlerID = mh.MoneyHandlerID
-        SET rr.DateResolved = %s
-        WHERE mh.MachineID = %s
-          AND rr.DateResolved IS NULL
-          AND rr.ReasonForRequest LIKE '%Change refill%'
-        ORDER BY rr.RestockRequestID DESC
-        LIMIT 1
+        UPDATE RestockRequest
+        SET DateResolved = %s
+        WHERE RestockRequestID = (
+            SELECT id FROM (
+                SELECT rr.RestockRequestID AS id
+                FROM RestockRequest rr
+                JOIN MoneyHandler mh ON rr.MoneyHandlerID = mh.MoneyHandlerID
+                WHERE mh.MachineID = %s
+                  AND rr.DateResolved IS NULL
+                  AND rr.ReasonForRequest LIKE '%%Change refill%%'
+                ORDER BY rr.RestockRequestID DESC
+                LIMIT 1
+            ) AS t
+        )
     """, (datetime.now().date(), machine_id))
 
     conn.commit()
     cursor.close()
     conn.close()
+
+
+# ═══════════════════════════════════════════════════════════════
+# TRANSACTION HISTORY FUNCTIONS
+# Used by the View Transactions screen
+# ═══════════════════════════════════════════════════════════════
+
+# Retrieves all transactions for the machine joined with product info
+# Returns rows sorted newest-first and aggregate summary totals
+def get_all_transactions(machine_id):
+    conn = get_connection()
+    cursor = conn.cursor(dictionary=True)
+
+    cursor.execute("""
+        SELECT
+            t.SaleNumber,
+            t.SaleDateTime,
+            p.Name       AS ProductName,
+            p.Price,
+            t.Tax,
+            t.CashGiven,
+            t.CardFee,
+            t.AccountCharged
+        FROM `Transaction` t
+        LEFT JOIN Product p ON t.ProductID = p.ProductID
+        WHERE t.MachineID = %s
+        ORDER BY t.SaleDateTime DESC
+    """, (machine_id,))
+
+    rows = cursor.fetchall()
+
+    # Aggregate totals
+    cursor.execute("""
+        SELECT
+            SUM(p.Price + t.Tax)                     AS total_revenue,
+            SUM(t.Tax)                               AS total_tax,
+            SUM(CASE WHEN t.CashGiven IS NOT NULL
+                     THEN t.CashGiven ELSE 0 END)    AS total_cash
+        FROM `Transaction` t
+        LEFT JOIN Product p ON t.ProductID = p.ProductID
+        WHERE t.MachineID = %s
+    """, (machine_id,))
+
+    totals = cursor.fetchone()
+    cursor.close()
+    conn.close()
+    return rows, totals
+
+
+# Returns slot codes that have an open restock request assigned to a specific worker
+def get_slot_codes_with_open_restock_for_worker(worker_id):
+    conn = get_connection()
+    cursor = conn.cursor()
+
+    cursor.execute("""
+        SELECT DISTINCT ReasonForRequest
+        FROM RestockRequest
+        WHERE ServiceWorkerID = %s
+          AND DateResolved IS NULL
+          AND MoneyHandlerID IS NULL
+    """, (worker_id,))
+
+    rows = cursor.fetchall()
+    cursor.close()
+    conn.close()
+
+    # Extract slot codes from the reason text (format: '...Slot "XY"...')
+    import re
+    codes = set()
+    for (reason,) in rows:
+        match = re.search(r'Slot "([^"]+)"', reason or "")
+        if match:
+            codes.add(match.group(1))
+    return codes
 
 
 # ═══════════════════════════════════════════════════════════════
@@ -492,16 +618,149 @@ def resolve_change_refill_alert(machine_id):
 
 # Retrieves all service workers assigned to the machine
 # Returns a list of dictionaries with worker ID, name, and contact info
-def get_service_workers():
+def get_service_workers(machine_id=1):
     conn = get_connection()
     cursor = conn.cursor(dictionary=True)
 
-    cursor.execute("SELECT * FROM ServiceWorker WHERE MachineID = 1")
+    cursor.execute("SELECT * FROM ServiceWorker WHERE MachineID = %s", (machine_id,))
     results = cursor.fetchall()
 
     cursor.close()
     conn.close()
     return results
+
+
+# Adds a new service worker to the database for this machine
+def add_service_worker(machine_id, name, worker_type, phone, email, company):
+    conn = get_connection()
+    cursor = conn.cursor()
+    cursor.execute("""
+        INSERT INTO ServiceWorker (MachineID, Name, WorkerType, PhoneNumber, Email, Company)
+        VALUES (%s, %s, %s, %s, %s, %s)
+    """, (machine_id, name, worker_type, phone or None, email or None, company or None))
+    conn.commit()
+    new_id = cursor.lastrowid
+    cursor.close()
+    conn.close()
+    return new_id
+
+
+# Updates an existing service worker's details
+def update_service_worker(worker_id, name, worker_type, phone, email, company):
+    conn = get_connection()
+    cursor = conn.cursor()
+    cursor.execute("""
+        UPDATE ServiceWorker
+        SET Name = %s, WorkerType = %s, PhoneNumber = %s, Email = %s, Company = %s
+        WHERE WorkerID = %s
+    """, (name, worker_type, phone or None, email or None, company or None, worker_id))
+    conn.commit()
+    cursor.close()
+    conn.close()
+
+
+# Removes a service worker and all their linked records, handling the full FK chain.
+def delete_service_worker(worker_id):
+    conn = get_connection()
+    cursor = conn.cursor()
+    # Find all RestockRequest IDs belonging to this worker
+    cursor.execute("SELECT RestockRequestID FROM RestockRequest WHERE ServiceWorkerID = %s", (worker_id,))
+    rr_ids = [row[0] for row in cursor.fetchall()]
+    if rr_ids:
+        fmt = ','.join(['%s'] * len(rr_ids))
+        # MachineSlot and PerishableItem reference RestockRequest — NULL those FKs first
+        cursor.execute(f"UPDATE MachineSlot SET RestockRequestID = NULL WHERE RestockRequestID IN ({fmt})", rr_ids)
+        cursor.execute(f"UPDATE PerishableItem SET RestockRequestID = NULL WHERE RestockRequestID IN ({fmt})", rr_ids)
+    cursor.execute("DELETE FROM MaintenanceRequest WHERE ServiceWorkerID = %s", (worker_id,))
+    cursor.execute("DELETE FROM RestockRequest WHERE ServiceWorkerID = %s", (worker_id,))
+    cursor.execute("DELETE FROM ServiceWorker WHERE WorkerID = %s", (worker_id,))
+    conn.commit()
+    cursor.close()
+    conn.close()
+
+
+def has_open_auto_maintenance(machine_id):
+    conn = get_connection()
+    cursor = conn.cursor()
+    cursor.execute("""
+        SELECT COUNT(*) FROM MaintenanceRequest
+        WHERE MachineID = %s AND DateResolved IS NULL
+          AND ReasonForRequest = 'Auto-Scheduled Servicing'
+    """, (machine_id,))
+    count = cursor.fetchone()[0]
+    cursor.close()
+    conn.close()
+    return count > 0
+
+
+def get_currency_breakdown(machine_id):
+    conn = get_connection()
+    cursor = conn.cursor(dictionary=True)
+    # GROUP BY CurrencyWorth so multiple rows with the same denomination show as one line
+    cursor.execute("""
+        SELECT c.CurrencyWorth, SUM(c.CurrentAmount) AS CurrentAmount
+        FROM Currency c
+        JOIN MoneyHandler mh ON c.MoneyHandlerID = mh.MoneyHandlerID
+        WHERE mh.MachineID = %s
+        GROUP BY c.CurrencyWorth
+        ORDER BY c.CurrencyWorth DESC
+    """, (machine_id,))
+    results = cursor.fetchall()
+    cursor.close()
+    conn.close()
+    return results
+
+
+def get_total_cash_in_machine(machine_id):
+    conn = get_connection()
+    cursor = conn.cursor(dictionary=True)
+    cursor.execute("""
+        SELECT SUM(c.CurrencyWorth * c.CurrentAmount) AS current_cash
+        FROM Currency c
+        JOIN MoneyHandler mh ON c.MoneyHandlerID = mh.MoneyHandlerID
+        WHERE mh.MachineID = %s
+    """, (machine_id,))
+    row = cursor.fetchone()
+    cursor.close()
+    conn.close()
+    return float(row["current_cash"] or 0) if row else 0.0
+
+
+def get_all_service_workers():
+    conn = get_connection()
+    cursor = conn.cursor(dictionary=True)
+    cursor.execute("SELECT * FROM ServiceWorker ORDER BY WorkerID")
+    results = cursor.fetchall()
+    cursor.close()
+    conn.close()
+    return results
+
+
+def add_product_to_slot(slot_code, name, price, description, max_qty, threshold):
+    conn = get_connection()
+    cursor = conn.cursor(dictionary=True)
+    # Product requires MachineID (NOT NULL FK) — pull it from the single Machine row
+    cursor.execute("""
+        INSERT INTO Product (MachineID, Name, Price, Description)
+        SELECT MachineID, %s, %s, %s FROM Machine LIMIT 1
+    """, (name, float(price), description or None))
+    product_id = cursor.lastrowid
+    # Slot may already exist as an empty row — update it rather than inserting a duplicate
+    cursor.execute("SELECT SlotCode FROM MachineSlot WHERE SlotCode = %s", (slot_code,))
+    if cursor.fetchone():
+        cursor.execute("""
+            UPDATE MachineSlot
+            SET ProductID = %s, MaxAmount = %s, ProductCount = 0, RestockAtThreshold = %s
+            WHERE SlotCode = %s
+        """, (product_id, int(max_qty), float(threshold), slot_code))
+    else:
+        cursor.execute("""
+            INSERT INTO MachineSlot (SlotCode, ProductID, MaxAmount, ProductCount, RestockAtThreshold)
+            VALUES (%s, %s, %s, 0, %s)
+        """, (slot_code, product_id, int(max_qty), float(threshold)))
+    conn.commit()
+    cursor.close()
+    conn.close()
 
 
 # ═══════════════════════════════════════════════════════════════
