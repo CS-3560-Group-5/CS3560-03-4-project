@@ -59,11 +59,11 @@ INSERT IGNORE INTO MaintenanceRequest VALUES(5, 1, 1, STR_TO_DATE('3-21-2026','%
 -- currency data
 INSERT IGNORE INTO Currency VALUES(1, 1, 9, 50, .01); -- penny
 INSERT IGNORE INTO Currency VALUES(2, 1, 35, 60, .05);	-- nickel
-INSERT IGNORE INTO Currency VALUES(3, 1, 55, 60, 1.0);	-- dime
-INSERT IGNORE INTO Currency VALUES(4, 1, 30, 60, 1.0);	-- quarter
+INSERT IGNORE INTO Currency VALUES(3, 1, 55, 60, .1);	-- dime
+INSERT IGNORE INTO Currency VALUES(4, 1, 30, 60, .25);	-- quarter
 INSERT IGNORE INTO Currency VALUES(5, 1, 30, null, 1.0); -- null currentamount because not a coin (1 dollar bill)
-INSERT IGNORE INTO Currency VALUES(6, 5, 32, null, 5.0); -- null currentamount because not a coin (5 dollar bill)
-INSERT IGNORE INTO Currency VALUES(7, 10, 20, null, 10.0); -- null currentamount because not a coin (10 dollar bill)
+INSERT IGNORE INTO Currency VALUES(6, 1, 32, null, 5.0); -- null currentamount because not a coin (5 dollar bill)
+INSERT IGNORE INTO Currency VALUES(7, 1, 20, null, 10.0); -- null currentamount because not a coin (10 dollar bill)
 
 -- restockrequest data
 INSERT IGNORE INTO RestockRequest VALUES(1, 2, 1, STR_TO_DATE('3-20-2025','%m-%d-%Y'), STR_TO_DATE('3 21 2025','%m %d %Y'), "Restock request in \"MoneyHandler\" : \"$.01\" coins below restock threshold.");

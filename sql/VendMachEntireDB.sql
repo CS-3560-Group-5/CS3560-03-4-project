@@ -33,7 +33,7 @@ CREATE TABLE `currency` (
   PRIMARY KEY (`CurrencyID`),
   KEY `MoneyHandlerID` (`MoneyHandlerID`),
   CONSTRAINT `currency_ibfk_1` FOREIGN KEY (`MoneyHandlerID`) REFERENCES `moneyhandler` (`MoneyHandlerID`)
-) ENGINE=InnoDB AUTO_INCREMENT=6 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+) ENGINE=InnoDB AUTO_INCREMENT=8 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -42,7 +42,7 @@ CREATE TABLE `currency` (
 
 LOCK TABLES `currency` WRITE;
 /*!40000 ALTER TABLE `currency` DISABLE KEYS */;
-INSERT INTO `currency` VALUES (1,1,509,50,0.01),(2,1,35,60,0.05),(3,1,55,60,1),(4,1,30,60,1),(5,1,30,NULL,1);
+INSERT INTO `currency` VALUES (1,1,9,50,0.01),(2,1,35,60,0.05),(3,1,55,60,0.1),(4,1,30,60,0.25),(5,1,30,NULL,1),(6,1,32,NULL,5),(7,1,20,NULL,10);
 /*!40000 ALTER TABLE `currency` ENABLE KEYS */;
 UNLOCK TABLES;
 
@@ -218,7 +218,7 @@ CREATE TABLE `restockrequest` (
   KEY `ServiceWorkerID` (`ServiceWorkerID`),
   CONSTRAINT `restockrequest_ibfk_1` FOREIGN KEY (`MoneyHandlerID`) REFERENCES `moneyhandler` (`MoneyHandlerID`),
   CONSTRAINT `restockrequest_ibfk_2` FOREIGN KEY (`ServiceWorkerID`) REFERENCES `serviceworker` (`WorkerID`)
-) ENGINE=InnoDB AUTO_INCREMENT=7 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+) ENGINE=InnoDB AUTO_INCREMENT=6 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -227,7 +227,7 @@ CREATE TABLE `restockrequest` (
 
 LOCK TABLES `restockrequest` WRITE;
 /*!40000 ALTER TABLE `restockrequest` DISABLE KEYS */;
-INSERT INTO `restockrequest` VALUES (1,2,1,'2025-03-20','2025-03-21','Restock request in \"MoneyHandler\" : \"$.01\" coins below restock threshold.'),(2,2,1,'2026-03-25',NULL,'Restock request in \"MoneyHandler\" : bills above restock threshold.'),(3,2,NULL,'2026-03-30',NULL,'Restock request in \"MachineSlot\" : Slot \"2B\" Product \"Cheetos\" below restock threshold.'),(4,2,1,'2025-03-20','2025-03-21','Restock request in \"MoneyHandler\" : \"$.1\" coins above restock threshold.'),(5,2,NULL,'2025-03-20','2025-03-21','Restock request in \"MachineSlot\" : Slot \"1E\" Product \"Twinkie\" below restock threshold.'),(6,1,1,'2026-05-02','2026-05-02','Change refill: $5.00 in coins added by worker 1.');
+INSERT INTO `restockrequest` VALUES (1,2,1,'2025-03-20','2025-03-21','Restock request in \"MoneyHandler\" : \"$.01\" coins below restock threshold.'),(2,2,1,'2026-03-25',NULL,'Restock request in \"MoneyHandler\" : bills above restock threshold.'),(3,2,NULL,'2026-03-30',NULL,'Restock request in \"MachineSlot\" : Slot \"2B\" Product \"Cheetos\" below restock threshold.'),(4,2,1,'2025-03-20','2025-03-21','Restock request in \"MoneyHandler\" : \"$.1\" coins above restock threshold.'),(5,2,NULL,'2025-03-20','2025-03-21','Restock request in \"MachineSlot\" : Slot \"1E\" Product \"Twinkie\" below restock threshold.');
 /*!40000 ALTER TABLE `restockrequest` ENABLE KEYS */;
 UNLOCK TABLES;
 
@@ -313,4 +313,4 @@ UNLOCK TABLES;
 /*!40101 SET COLLATION_CONNECTION=@OLD_COLLATION_CONNECTION */;
 /*!40111 SET SQL_NOTES=@OLD_SQL_NOTES */;
 
--- Dump completed on 2026-05-02 11:10:30
+-- Dump completed on 2026-05-02 11:41:06
