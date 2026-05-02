@@ -724,6 +724,23 @@ def get_currency_breakdown(machine_id):
     conn.close()
     return results
 
+# added to get currency max amounts
+def get_total_currency_amounts(machine_id):
+    conn = get_connection()
+    cursor = conn.cursor(dictionary=True)
+    cursor.execute("""
+        SELECT c.CurrencyID, c.MaxAmount
+        FROM Currency c
+        JOIN MoneyHandler mh ON c.MoneyHandlerID = mh.MoneyHandlerID
+        WHERE mh.MachineID = %s
+        GROUP BY c.CurrencyID
+        ORDER BY c.CurrencyID DESC
+    """, (machine_id,))
+    results = cursor.fetchall()
+    cursor.close()
+    conn.close()
+    return results
+
 
 def get_total_cash_in_machine(machine_id):
     conn = get_connection()

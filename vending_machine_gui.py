@@ -1297,7 +1297,9 @@ class UpdateCashLevelScreen(tk.Frame):
             col_hdr = tk.Frame(pad, bg=ACCENT, height=28)
             col_hdr.pack(fill="x")
             col_hdr.pack_propagate(False)
-            for h, w in [("Denomination", 24), ("Type", 12), ("Count", 10)]:
+            # edit : added new column "max amount (coins only)"
+            total_amounts = db_connection.get_total_currency_amounts(self.master.machine_id)
+            for h, w in [("Denomination", 24), ("Type", 12), ("Count", 10), ("Max Amount (Coins Only)", 20)]:
                 tk.Label(col_hdr, text=h, font=("Segoe UI", 8, "bold"),
                          fg=BG_WHITE, bg=ACCENT, width=w, anchor="w"
                          ).pack(side="left", padx=8, pady=4)
@@ -1306,15 +1308,18 @@ class UpdateCashLevelScreen(tk.Frame):
                 worth = float(denom.get("CurrencyWorth") or 0)
                 label = f"${worth:.2f}" if worth >= 1.0 else f"{int(worth * 100)}¢"
                 type_label = "Bill" if worth >= 1.0 else "Coin"
+                max_amt = str(total_amounts[i].get("MaxAmount"))
                 row = tk.Frame(pad, bg=bg, height=30)
                 row.pack(fill="x")
                 row.pack_propagate(False)
                 tk.Label(row, text=label, font=("Segoe UI", 9),
-                         fg=TEXT_DARK, bg=bg, width=24, anchor="w").pack(side="left", padx=8, pady=4)
+                         fg=TEXT_DARK, bg=bg, width=24, anchor="w").pack(side="left", padx=10, pady=4)
                 tk.Label(row, text=type_label, font=("Segoe UI", 9),
                          fg=TEXT_MID, bg=bg, width=12, anchor="w").pack(side="left", padx=4)
                 tk.Label(row, text=str(denom.get("CurrentAmount", 0)), font=("Segoe UI", 9, "bold"),
-                         fg=TEXT_DARK, bg=bg, width=10, anchor="w").pack(side="left", padx=4)
+                         fg=TEXT_DARK, bg=bg, width=10, anchor="w").pack(side="left", padx=10)
+                tk.Label(row, text=max_amt, font=("Segoe UI", 9),
+                         fg=TEXT_DARK, bg=bg, width=10, anchor="w").pack(side="left", padx=12)      
 
         total_cash = sum(
             float(d.get("CurrencyWorth") or 0) * int(d.get("CurrentAmount") or 0)
