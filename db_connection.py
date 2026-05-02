@@ -670,7 +670,7 @@ def delete_service_worker(worker_id):
         fmt = ','.join(['%s'] * len(rr_ids))
         # MachineSlot and PerishableItem reference RestockRequest — NULL those FKs first
         cursor.execute(f"UPDATE MachineSlot SET RestockRequestID = NULL WHERE RestockRequestID IN ({fmt})", rr_ids)
-        cursor.execute(f"UPDATE PerishableItem SET RestockRequestID = NULL WHERE RestockRequestID IN ({fmt})", rr_ids)
+        #cursor.execute(f"UPDATE PerishableItem SET RestockRequestID = NULL WHERE RestockRequestID IN ({fmt})", rr_ids)
     cursor.execute("DELETE FROM MaintenanceRequest WHERE ServiceWorkerID = %s", (worker_id,))
     cursor.execute("DELETE FROM RestockRequest WHERE ServiceWorkerID = %s", (worker_id,))
     cursor.execute("DELETE FROM ServiceWorker WHERE WorkerID = %s", (worker_id,))
