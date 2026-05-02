@@ -19,8 +19,7 @@ CREATE TABLE IF NOT EXISTS `Machine` (
     `ModelNumber` VARCHAR(127),
     `CurrentState` VARCHAR(63),
     `DateLastServiced` Date,
-    `DaysBetweenServices` INTEGER,
-	`MaxProductSlots` INTEGER
+    `DaysBetweenServices` INTEGER
 );
 
 -- ServiceWorker table
@@ -144,20 +143,5 @@ CREATE TABLE IF NOT EXISTS `MachineSlot` (
     `ProductCount` INTEGER,
     `MaxAmount` INTEGER,
     `RestockAtThreshold` DOUBLE
-);
-
--- PerishableItem table
-CREATE TABLE IF NOT EXISTS `PerishableItem` (
-	-- private/foreign key
-	`PerishableItemID` INTEGER UNSIGNED NOT NULL AUTO_INCREMENT, -- pk
-    PRIMARY KEY(`PerishableItemID`),
-    `MachineSlotID` VARCHAR(15) NOT NULL, -- fk1
-	`RestockRequestID` INTEGER UNSIGNED, -- fk2
-    FOREIGN KEY(`MachineSlotID`) REFERENCES `MachineSlot`(`SlotCode`),
-	FOREIGN KEY(`RestockRequestID`) REFERENCES `RestockRequest`(`RestockRequestID`),
-    -- attributes
-    `DateExpire` Date,
-    `RestockDaysBeforeExpire` INTEGER,
-    `SlotPosition` INTEGER -- starts at 1, goes to machineSlot.maxAmount
 );
 

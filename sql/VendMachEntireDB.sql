@@ -2,7 +2,7 @@ CREATE DATABASE  IF NOT EXISTS `vendingmachine` /*!40100 DEFAULT CHARACTER SET u
 USE `vendingmachine`;
 -- MySQL dump 10.13  Distrib 8.0.45, for Win64 (x86_64)
 --
--- Host: 127.0.0.1    Database: vendingmachine
+-- Host: localhost    Database: vendingmachine
 -- ------------------------------------------------------
 -- Server version	8.0.45
 
@@ -33,7 +33,7 @@ CREATE TABLE `currency` (
   PRIMARY KEY (`CurrencyID`),
   KEY `MoneyHandlerID` (`MoneyHandlerID`),
   CONSTRAINT `currency_ibfk_1` FOREIGN KEY (`MoneyHandlerID`) REFERENCES `moneyhandler` (`MoneyHandlerID`)
-) ENGINE=InnoDB AUTO_INCREMENT=4 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+) ENGINE=InnoDB AUTO_INCREMENT=6 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -42,7 +42,7 @@ CREATE TABLE `currency` (
 
 LOCK TABLES `currency` WRITE;
 /*!40000 ALTER TABLE `currency` DISABLE KEYS */;
-INSERT INTO `currency` VALUES (1,1,35,50,0.01),(2,1,80,NULL,1),(3,1,35,60,1);
+INSERT INTO `currency` VALUES (1,1,509,50,0.01),(2,1,35,60,0.05),(3,1,55,60,1),(4,1,30,60,1),(5,1,30,NULL,1);
 /*!40000 ALTER TABLE `currency` ENABLE KEYS */;
 UNLOCK TABLES;
 
@@ -60,7 +60,6 @@ CREATE TABLE `machine` (
   `CurrentState` varchar(63) DEFAULT NULL,
   `DateLastServiced` date DEFAULT NULL,
   `DaysBetweenServices` int DEFAULT NULL,
-  `MaxProductSlots` int DEFAULT NULL,
   PRIMARY KEY (`MachineID`)
 ) ENGINE=InnoDB AUTO_INCREMENT=2 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
@@ -71,7 +70,7 @@ CREATE TABLE `machine` (
 
 LOCK TABLES `machine` WRITE;
 /*!40000 ALTER TABLE `machine` DISABLE KEYS */;
-INSERT INTO `machine` VALUES (1,'1234 Oak Ave Springfield, IL 62704','3756-B','Operational','2025-09-22',180,10);
+INSERT INTO `machine` VALUES (1,'1234 Oak Ave Springfield, IL 62704','3756-B','Operational','2025-09-22',180);
 /*!40000 ALTER TABLE `machine` ENABLE KEYS */;
 UNLOCK TABLES;
 
@@ -103,7 +102,7 @@ CREATE TABLE `machineslot` (
 
 LOCK TABLES `machineslot` WRITE;
 /*!40000 ALTER TABLE `machineslot` DISABLE KEYS */;
-INSERT INTO `machineslot` VALUES ('1A',NULL,NULL,NULL,NULL,NULL),('1B',1,3,1,10,0.2),('1C',NULL,NULL,NULL,NULL,NULL),('1D',2,NULL,3,10,0.1),('1E',NULL,NULL,NULL,NULL,NULL),('2A',NULL,NULL,NULL,NULL,NULL),('2B',1,NULL,3,10,0.2),('2C',NULL,NULL,NULL,NULL,NULL),('2D',NULL,NULL,NULL,NULL,NULL),('2E',NULL,NULL,NULL,NULL,NULL);
+INSERT INTO `machineslot` VALUES ('1A',NULL,NULL,NULL,NULL,NULL),('1B',1,3,1,10,0.2),('1C',5,NULL,5,15,0.2),('1D',2,NULL,8,10,0.1),('1E',6,5,0,10,0.3),('2A',3,NULL,5,10,0.2),('2B',1,NULL,7,10,0.2),('2C',NULL,NULL,NULL,NULL,NULL),('2D',5,NULL,15,20,0.2),('2E',4,NULL,20,20,0.1);
 /*!40000 ALTER TABLE `machineslot` ENABLE KEYS */;
 UNLOCK TABLES;
 
@@ -126,7 +125,7 @@ CREATE TABLE `maintenancerequest` (
   KEY `ServiceWorkerID` (`ServiceWorkerID`),
   CONSTRAINT `maintenancerequest_ibfk_1` FOREIGN KEY (`MachineID`) REFERENCES `machine` (`MachineID`),
   CONSTRAINT `maintenancerequest_ibfk_2` FOREIGN KEY (`ServiceWorkerID`) REFERENCES `serviceworker` (`WorkerID`)
-) ENGINE=InnoDB AUTO_INCREMENT=4 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+) ENGINE=InnoDB AUTO_INCREMENT=6 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -135,7 +134,7 @@ CREATE TABLE `maintenancerequest` (
 
 LOCK TABLES `maintenancerequest` WRITE;
 /*!40000 ALTER TABLE `maintenancerequest` DISABLE KEYS */;
-INSERT INTO `maintenancerequest` VALUES (1,1,3,'2025-03-20','2025-03-21','Error in Button Module'),(2,1,1,'2026-03-25','2026-03-26','Error in Lighting Module'),(3,1,1,'2026-03-21',NULL,'Auto-Scheduled Servicing');
+INSERT INTO `maintenancerequest` VALUES (1,1,3,'2025-03-20','2025-03-21','Error in Button Module'),(2,1,1,'2026-03-25','2026-03-26','Error in Lighting Module'),(3,1,1,'2026-03-25',NULL,'Error in Lighting Module'),(4,1,3,'2025-03-20',NULL,'Error in Button Module'),(5,1,1,'2026-03-21',NULL,'Auto-Scheduled Servicing');
 /*!40000 ALTER TABLE `maintenancerequest` ENABLE KEYS */;
 UNLOCK TABLES;
 
@@ -170,38 +169,6 @@ INSERT INTO `moneyhandler` VALUES (1,1,0.8,100,0.8,0.2);
 UNLOCK TABLES;
 
 --
--- Table structure for table `perishableitem`
---
-
-DROP TABLE IF EXISTS `perishableitem`;
-/*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!50503 SET character_set_client = utf8mb4 */;
-CREATE TABLE `perishableitem` (
-  `PerishableItemID` int unsigned NOT NULL AUTO_INCREMENT,
-  `MachineSlotID` varchar(15) NOT NULL,
-  `RestockRequestID` int unsigned DEFAULT NULL,
-  `DateExpire` date DEFAULT NULL,
-  `RestockDaysBeforeExpire` int DEFAULT NULL,
-  `SlotPosition` int DEFAULT NULL,
-  PRIMARY KEY (`PerishableItemID`),
-  KEY `MachineSlotID` (`MachineSlotID`),
-  KEY `RestockRequestID` (`RestockRequestID`),
-  CONSTRAINT `perishableitem_ibfk_1` FOREIGN KEY (`MachineSlotID`) REFERENCES `machineslot` (`SlotCode`),
-  CONSTRAINT `perishableitem_ibfk_2` FOREIGN KEY (`RestockRequestID`) REFERENCES `restockrequest` (`RestockRequestID`)
-) ENGINE=InnoDB AUTO_INCREMENT=8 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
-/*!40101 SET character_set_client = @saved_cs_client */;
-
---
--- Dumping data for table `perishableitem`
---
-
-LOCK TABLES `perishableitem` WRITE;
-/*!40000 ALTER TABLE `perishableitem` DISABLE KEYS */;
-INSERT INTO `perishableitem` VALUES (1,'1B',NULL,'2027-03-12',10,1),(2,'2B',NULL,'2027-03-12',10,1),(3,'2B',4,'2026-04-09',10,2),(4,'2B',NULL,'2027-03-10',10,3),(5,'1D',NULL,'2027-04-11',10,1),(6,'1D',NULL,'2027-04-10',10,2),(7,'1D',NULL,'2027-04-10',10,3);
-/*!40000 ALTER TABLE `perishableitem` ENABLE KEYS */;
-UNLOCK TABLES;
-
---
 -- Table structure for table `product`
 --
 
@@ -219,7 +186,7 @@ CREATE TABLE `product` (
   PRIMARY KEY (`ProductID`),
   KEY `MachineID` (`MachineID`),
   CONSTRAINT `product_ibfk_1` FOREIGN KEY (`MachineID`) REFERENCES `machine` (`MachineID`)
-) ENGINE=InnoDB AUTO_INCREMENT=4 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+) ENGINE=InnoDB AUTO_INCREMENT=7 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -228,7 +195,7 @@ CREATE TABLE `product` (
 
 LOCK TABLES `product` WRITE;
 /*!40000 ALTER TABLE `product` DISABLE KEYS */;
-INSERT INTO `product` VALUES (1,1,'Cheetos','bagged puff chips. cheddar cheese flavored. orange packaging.','1 Serving Per Container. Serving Size 21 pieces / 28g. Amount Per Serving : 160 Calories, Total Fat 10g, Trans Fat 0g, Cholesterol 0mg, Sodium 200mg, Total Carbohydrate 15g, Dietary Fiber 0.5g, Total Sugars 1g, Includes 0g Added Sugars, Protein 2g','Enriched Corn Meal (Corn Meal, Ferrous Sulfate, Niacin, Thiamin Mononitrate, Riboflavin, Folic Acid), Vegetable Oil (Corn, Canola, and/or Sunflower Oil), Whey, Cheddar Cheese (Milk, Cheese Cultures, Salt, Enzymes), Salt, Maltodextrin (made from Corn), Natural and Artificial Flavors, Whey Protein Concentrate, Monosodium Glutamate, Lactic Acid, Citric Acid, Artificial Color (Yellow 6)',3.99),(2,1,'Dr Pepper','canned soda. cherry flavored. dark red and white packaging','1 Serving Per Container. Serving Size 1 can / 20oz. Amount Per Serving : Calories 240, Total Fat 0g, Saturated Fat 0g, Trans Fat 0g, Cholesterol 0mg, Sodium 95mg, Carbohydrates 66g, Dietary Fiber 0g, Total Sugars 65g, Added Sugars 65g, Protein 0g','Carbonated Water, High Fructose Corn Syrup, Caramel Color, Phosphoric Acid, Natural and Artificial Flavors, Sodium Benzoate, Caffeine. Caffine content: 41 mg / 12 fl oz',2.98),(3,1,'Share Sized Snickers','wrapped candy bar. chocolate, nougat, and caramel. brown, blue, red, and white packaging','1 Serving Per Container. Serving Size 1 bar / 8 oz. Amount Per Serving : Calories 250,  Total Fat 12 g, Saturated Fat 4.5 g, Trans Fat 0 g, Cholesterol<5 mg, Sodium 130 mg, Total Carbohydrate 32 g, Dietary Fiber 1 g, Total Sugars 27 g, Includes Added Sugars 25 g, Protein 5 g','Milk Chocolate (Sugar, Cocoa Butter, Chocolate, Skim Milk, Lactose, Milkfat, Soy Lecithin), Peanuts, Corn Syrup, Sugar, Palm Oil, Skim Milk, Lactose, Salt, Egg Whites, Artificial Flavor',5.5);
+INSERT INTO `product` VALUES (1,1,'Cheetos','bagged puff chips. cheddar cheese flavored. orange packaging.','1 Serving Per Container. Serving Size 21 pieces / 28g. 160 Calories.','Corn, Salt, Cheese',3.99),(2,1,'Dr Pepper','canned soda. cherry flavored. dark red and white packaging','1 Serving Per Container. Serving Size 1 can / 20oz. 240 Calories.','Carbonated Water, High Fructose Corn Syrup, Caramel',2.98),(3,1,'Snickers','wrapped candy bar. chocolate, nougat, and caramel. brown, blue, red, and white packaging','1 Serving Per Container. Serving Size 1 bar / 8 oz. 250 Calories.','Milk Chocolate, Sugar, Peanuts',5.5),(4,1,'Sprite','canned soda. lemon-lime flavored. green packaging.','1 Serving Per Container. Serving Size 1 can / 20oz. 240 Calories.','Carbonated Water, High Fructose Corn Syrup, Lemons',4.99),(5,1,'Bottled Water','Bottled water. Clear packaging','1 Serving Per Container. Serving Size 1 can / 20oz. 0 Calories.','Water, Minerals',1.59),(6,1,'Twinkie','Pastry. Clear packaging, yellow pastry','1 Serving Per Container. Serving Size 1 pastry / 5oz. 500 Calories.','Wheat, Sugar, Milk, Preservatives',6.99);
 /*!40000 ALTER TABLE `product` ENABLE KEYS */;
 UNLOCK TABLES;
 
@@ -251,7 +218,7 @@ CREATE TABLE `restockrequest` (
   KEY `ServiceWorkerID` (`ServiceWorkerID`),
   CONSTRAINT `restockrequest_ibfk_1` FOREIGN KEY (`MoneyHandlerID`) REFERENCES `moneyhandler` (`MoneyHandlerID`),
   CONSTRAINT `restockrequest_ibfk_2` FOREIGN KEY (`ServiceWorkerID`) REFERENCES `serviceworker` (`WorkerID`)
-) ENGINE=InnoDB AUTO_INCREMENT=5 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+) ENGINE=InnoDB AUTO_INCREMENT=7 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -260,7 +227,7 @@ CREATE TABLE `restockrequest` (
 
 LOCK TABLES `restockrequest` WRITE;
 /*!40000 ALTER TABLE `restockrequest` DISABLE KEYS */;
-INSERT INTO `restockrequest` VALUES (1,2,1,'2025-03-20','2025-03-21','Restock request in \"MoneyHandler\" : \"$.01\" coins below restock threshold.'),(2,2,1,'2026-03-25',NULL,'Restock request in \"MoneyHandler\" : \"$1\" dollar bills above restock threshold.'),(3,2,NULL,'2026-03-30',NULL,'Restock request in \"MachineSlot\" : Slot \"2B\" Product \"Cheetos\" below restock threshold.'),(4,2,NULL,'2026-03-30',NULL,'Restock request in \"MachineSlot\" : Slot \"2B\" Product \"Cheetos\" at position 2 expired.');
+INSERT INTO `restockrequest` VALUES (1,2,1,'2025-03-20','2025-03-21','Restock request in \"MoneyHandler\" : \"$.01\" coins below restock threshold.'),(2,2,1,'2026-03-25',NULL,'Restock request in \"MoneyHandler\" : bills above restock threshold.'),(3,2,NULL,'2026-03-30',NULL,'Restock request in \"MachineSlot\" : Slot \"2B\" Product \"Cheetos\" below restock threshold.'),(4,2,1,'2025-03-20','2025-03-21','Restock request in \"MoneyHandler\" : \"$.1\" coins above restock threshold.'),(5,2,NULL,'2025-03-20','2025-03-21','Restock request in \"MachineSlot\" : Slot \"1E\" Product \"Twinkie\" below restock threshold.'),(6,1,1,'2026-05-02','2026-05-02','Change refill: $5.00 in coins added by worker 1.');
 /*!40000 ALTER TABLE `restockrequest` ENABLE KEYS */;
 UNLOCK TABLES;
 
@@ -325,7 +292,7 @@ CREATE TABLE `transaction` (
 
 LOCK TABLES `transaction` WRITE;
 /*!40000 ALTER TABLE `transaction` DISABLE KEYS */;
-INSERT INTO `transaction` VALUES (1,1,1,0.33,'2025-03-20 14:39:01',2.75,'4012888888881881',NULL),(2,1,1,0.33,'2026-03-25 00:00:00',NULL,NULL,5),(3,2,1,0.25,'2026-03-25 00:00:00',NULL,NULL,10),(4,1,1,0.33,'2026-03-30 00:00:00',1.5,'378282246310005',NULL);
+INSERT INTO `transaction` VALUES (1,1,1,0.33,'2025-03-20 14:39:01',2.75,'9999',NULL),(2,1,1,0.33,'2026-03-25 00:00:00',NULL,NULL,5),(3,2,1,0.25,'2026-03-25 00:00:00',NULL,NULL,10),(4,1,1,0.33,'2026-03-30 00:00:00',1.5,'1234',NULL);
 /*!40000 ALTER TABLE `transaction` ENABLE KEYS */;
 UNLOCK TABLES;
 
@@ -346,4 +313,4 @@ UNLOCK TABLES;
 /*!40101 SET COLLATION_CONNECTION=@OLD_COLLATION_CONNECTION */;
 /*!40111 SET SQL_NOTES=@OLD_SQL_NOTES */;
 
--- Dump completed on 2026-04-19 16:07:24
+-- Dump completed on 2026-05-02 11:10:30
