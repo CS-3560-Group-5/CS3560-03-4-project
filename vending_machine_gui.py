@@ -537,7 +537,7 @@ class RecordSaleScreen(tk.Frame):
         total = round(p["price"] + tax, 2)
 
         # EDIT : added checking for products that are sold out
-        if p["count"] == 0:
+        if p["count"] <= 0:
             messagebox.showerror("Product Out Of Stock", 
                                 f"Selected item is out of stock.")
             return
@@ -550,7 +550,7 @@ class RecordSaleScreen(tk.Frame):
                                      f"Cash ${given:.2f} is less than total ${total:.2f}.")
                 return
             change        = round(given - total, 2)
-            receipt_extra = f"Cash Given:   ${given:.2f}\nChange:       ${change:.2f}"
+            receipt_extra = f"Cash Given:   ${given:.2f}\n    Change:       ${change:.2f}" # edit : added a few spaces for formatting
         else:
             last4 = self.card_entry.get().strip()
             if not last4.isdigit() or len(last4) != 4:
@@ -583,7 +583,7 @@ class RecordSaleScreen(tk.Frame):
             self.qty_labels[p["code"]].configure(text=f"Qty: {new_count}")
 
         # Display receipt in the green banner
-        # EDIT : text was being cut off in receipt box. added some spaces in text to fix
+        # EDIT : text was being cut off in receipt box. added some spaces in text to fix. also changed '─' amount from 28 to 20
         self.receipt_label.configure(text=(
             f"    ✅  Sale Approved\n{'─'*20}\n"
             f"    Sale #:       TXN-{sale_num}\n"
@@ -597,6 +597,7 @@ class RecordSaleScreen(tk.Frame):
 
         self.selected = None
         self._refresh_summary()
+
 
 
 # ═══════════════════════════════════════════════════════════════
