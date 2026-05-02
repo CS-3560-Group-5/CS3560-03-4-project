@@ -1261,7 +1261,7 @@ class UpdateCashLevelScreen(tk.Frame):
     def _status_panel(self, parent):
         """Displays current MoneyHandler thresholds loaded from the database."""
         pad = tk.Frame(parent, bg=BG_WHITE)
-        pad.pack(fill="both", expand=True, padx=28, pady=24)
+        pad.pack(fill="both", expand=True, padx=5, pady=4)
 
         tk.Label(pad, text="Current Cash Status",
                  font=("Segoe UI", 13, "bold"), fg=TEXT_DARK, bg=BG_WHITE).pack(anchor="w")
