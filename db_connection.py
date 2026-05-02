@@ -4,6 +4,7 @@
 # Provides functions to read from and write to the MySQL database
 # This module bridges the GUI with the backend MySQL database
 
+import math
 import mysql.connector
 from datetime import datetime
 
@@ -214,20 +215,33 @@ def record_cash_sale(product_id, machine_id, tax, cash_given, price=0.0):
 
     sale_number = cursor.lastrowid
 
-    # Add net cash retained (price + tax) to the first bill denomination.
-    # CurrentAmount is INT so we round to the nearest dollar.
-    net_dollars = round(price + tax)
-    cursor.execute("""
-        UPDATE Currency
-        SET CurrentAmount = CurrentAmount + %s
-        WHERE MoneyHandlerID = (
-            SELECT MoneyHandlerID FROM MoneyHandler WHERE MachineID = %s LIMIT 1
-        )
-        AND CurrencyWorth >= 1.0
-        LIMIT 1
-    """, (net_dollars, machine_id))
+    # Add net cash retained (price + tax) to all currencies
+    # edit - updated code to allow for all coins and bills : pennies, nickels, dimes, quarters, 1 dollar bill, 5 dollar bill, 10 dollar bill
+    # vending machine assumption : customers always put in a coin combo thats optimal. This is assumed due to scope constraints
+    net_dollars = price + tax
+    denominations = [5.0, 1.0, .25, .1, .05, .01]   # hardcoded bc only these bills will be in machine
 
-    conn.commit()
+    # apply all updates in loop
+    for n in denominations:
+        if net_dollars <= 0:
+            break
+        update_amt = net_dollars / n
+        if update_amt < 1:
+            continue
+        update_amt = math.floor(update_amt)
+        net_dollars = round(net_dollars - (update_amt * n), 2)
+        print("denom:"+str(n)+"$in:"+str(update_amt * n)+"$"+str(net_dollars))
+        cursor.execute("""
+            UPDATE Currency
+            SET CurrentAmount = CurrentAmount + %s
+            WHERE MoneyHandlerID = (
+                SELECT MoneyHandlerID FROM MoneyHandler WHERE MachineID = %s LIMIT 1
+            )
+            AND CurrencyWorth = %s
+            LIMIT 1
+        """, (update_amt, machine_id, n))
+        conn.commit()
+    # end edit
     cursor.close()
     conn.close()
     return sale_number
