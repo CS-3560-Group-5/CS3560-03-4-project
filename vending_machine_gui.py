@@ -536,6 +536,13 @@ class RecordSaleScreen(tk.Frame):
         tax   = round(p["price"] * 0.095, 2)
         total = round(p["price"] + tax, 2)
 
+        # EDIT : added checking for products that are sold out
+        if p["count"] == 0:
+            messagebox.showerror("Product Out Of Stock", 
+                                f"Selected item is out of stock.")
+            return
+        #
+
         if self.payment.get() == "cash":
             given = self.cash_given.get()
             if given < total:
@@ -576,15 +583,16 @@ class RecordSaleScreen(tk.Frame):
             self.qty_labels[p["code"]].configure(text=f"Qty: {new_count}")
 
         # Display receipt in the green banner
+        # EDIT : text was being cut off in receipt box. added some spaces in text to fix
         self.receipt_label.configure(text=(
-            f"✅  Sale Approved\n{'─'*28}\n"
-            f"Sale #:       TXN-{sale_num}\n"
-            f"Product:      {p['name']} ({p['code']})\n"
-            f"Price:        ${p['price']:.2f}\n"
-            f"Tax:          ${tax:.2f}\n"
-            f"Total:        ${total:.2f}\n"
-            f"{receipt_extra}\n{'─'*28}\n"
-            f"Time: {datetime.now().strftime('%H:%M:%S')}\nThank you!"))
+            f"    ✅  Sale Approved\n{'─'*20}\n"
+            f"    Sale #:       TXN-{sale_num}\n"
+            f"    Product:      {p['name']} ({p['code']})\n"
+            f"    Price:        ${p['price']:.2f}\n"
+            f"    Tax:          ${tax:.2f}\n"
+            f"    Total:        ${total:.2f}\n"
+            f"    {receipt_extra}\n{'─'*20}\n"
+            f"    Time: {datetime.now().strftime('%H:%M:%S')}\n    Thank you!"))
         self.receipt_frame.pack(fill="x", pady=(14, 0))
 
         self.selected = None
@@ -1335,7 +1343,7 @@ class UpdateCashLevelScreen(tk.Frame):
         af = tk.Frame(pad, bg=BG_WHITE)
         af.pack(anchor="w", pady=(4, 16))
         for val, label in [("collect", "💰  Collect Cash (Bills)"),
-                            ("refill",  "🪙  Refill Change (Coins)")]:
+                            ("refill",  "🔄  Refill Change (Coins)")]:  # edit: changed emoji here to 🔄 because it was showing a ? box
             tk.Radiobutton(af, text=label, variable=self.action_type, value=val,
                            font=("Segoe UI", 10), fg=TEXT_DARK, bg=BG_WHITE,
                            selectcolor=ACCENT_LT, activebackground=BG_WHITE
