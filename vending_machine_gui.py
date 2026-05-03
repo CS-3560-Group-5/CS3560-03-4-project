@@ -1834,7 +1834,6 @@ class UpdateMachineInfoScreen(tk.Frame):
                 machine_id=self.master.machine_id,
                 address=data["Address"],
                 model_number=data["ModelNumber"],
-                max_slots=self.machine.get("MaxProductSlots", 0) if self.machine else 0,
                 days_between_services=data["DaysBetweenServices"],
                 current_state=data["CurrentState"])
             # Refresh the cached machine info so the header updates immediately

@@ -9,7 +9,6 @@ import mysql.connector
 from datetime import datetime
 
 # Establishes and returns a connection to the vendingmachine database
-# Uses the 'interface' user as specified in the project README
 def get_connection():
     # Creates and returns a new MySQL database connection
     return mysql.connector.connect(
@@ -140,7 +139,7 @@ def get_machine_info():
 
 # Updates the stored machine profile with new values provided by the admin
 # Called by the Update Machine Information screen when the admin saves changes
-def update_machine_info(machine_id, address, model_number, max_slots, days_between_services, current_state):
+def update_machine_info(machine_id, address, model_number, days_between_services, current_state):
     conn = get_connection()
     cursor = conn.cursor()
 
@@ -148,11 +147,10 @@ def update_machine_info(machine_id, address, model_number, max_slots, days_betwe
         UPDATE Machine
         SET Address             = %s,
             ModelNumber         = %s,
-            MaxProductSlots     = %s,
             DaysBetweenServices = %s,
             CurrentState        = %s
         WHERE MachineID = %s
-    """, (address, model_number, max_slots, days_between_services, current_state, machine_id))
+    """, (address, model_number, days_between_services, current_state, machine_id))
 
     conn.commit()
     cursor.close()
