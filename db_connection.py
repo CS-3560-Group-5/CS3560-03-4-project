@@ -200,6 +200,68 @@ def record_card_sale(product_id, machine_id, tax, card_fee, account_charged):
     conn.close()
     return sale_number
 
+# checks to see if the db can take x amount of money from a transaction
+def check_cash_in(machine_id, cash_given=0):
+    if cash_given <= 0:
+        return True
+    
+    conn = get_connection()
+    cursor = conn.cursor()
+
+    net_dollars = cash_given
+    denominations = (5.0, 1.0, .25, .1, .05, .01)   # hardcoded bc only these bills will be in machine
+    denom_count = [0, 0, 0, 0 ,0 ,0]
+
+    # calc the number of each value in
+    for i, n in enumerate(denominations):
+        if net_dollars <= 0:
+            break
+        update_amt = net_dollars / n
+        if update_amt < 1:
+            continue
+        update_amt = math.floor(update_amt)
+        net_dollars = round(net_dollars - (update_amt * n), 2)
+        #print("denom:"+str(n)+"$in:"+str(update_amt * n)+"$"+str(net_dollars))
+        denom_count[i] = update_amt
+    # see if any of the current amounts would be too full
+    cursor.execute("""
+        SELECT CurrencyWorth, CurrentAmount, MaxAmount FROM `Currency` 
+        WHERE MoneyHandlerID = (
+                SELECT MoneyHandlerID FROM MoneyHandler WHERE MachineID = %s LIMIT 1
+            );                        
+    """, tuple(str(machine_id)))
+    curr_amounts = cursor.fetchall()
+    cursor.execute("""
+        SELECT BillMaxAmount FROM `MoneyHandler`
+        WHERE MoneyHandlerID = (
+                SELECT MoneyHandlerID FROM MoneyHandler WHERE MachineID = %s LIMIT 1
+            );
+    """, tuple(str(machine_id)))
+    billMax = cursor.fetchall()[0][0]
+    billCount = 0
+
+    # check coins
+    denom_count.reverse()
+    #print(denom_count)
+    for i, m in enumerate(curr_amounts):
+        if m[2] != None and m[1] + denom_count[i] > m[2]:
+            cursor.close()
+            conn.close()
+            return False
+            
+    # count how many bills in machine
+    for m in curr_amounts:
+        if m[2] == None:
+            billCount += m[1]
+    # check if counted bills are too much
+    if billCount > billMax:
+        cursor.close()
+        conn.close()
+        return False
+    
+    cursor.close()
+    conn.close()
+    return True     # if passes all, then true
 
 # Records a cash transaction in the database
 # Inserts a new row into the Transaction table with cash-specific fields

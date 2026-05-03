@@ -549,6 +549,10 @@ class RecordSaleScreen(tk.Frame):
                 messagebox.showerror("Insufficient Funds",
                                      f"Cash ${given:.2f} is less than total ${total:.2f}.")
                 return
+            if not db_connection.check_cash_in(self.master.machine_id, given):
+                messagebox.showerror("Machine Cash Too Full",
+                                     f"Money must be emptied to take that amount. Try giving a smaller amount.")
+                return
             change        = round(given - total, 2)
             receipt_extra = f"Cash Given:   ${given:.2f}\n    Change:       ${change:.2f}" # edit : added a few spaces for formatting
         else:
@@ -1273,7 +1277,7 @@ class UpdateCashLevelScreen(tk.Frame):
         if self.money_info:
             m = self.money_info
             for label, val in [
-                ("Bill Max Amount",            f"${m.get('BillMaxAmount', 'N/A')}"),
+                ("Bill Max Amount",            f"{m.get('BillMaxAmount', 'N/A')}"),
                 ("Bill Restock Max Threshold", f"{m.get('BillRestockMaxThreshold', 'N/A')}%"),
                 ("Coin Restock Min Threshold", f"{m.get('CoinRestockMinThreshold', 'N/A')}%"),
                 ("Coin Restock Max Threshold", f"{m.get('CoinRestockMaxThreshold', 'N/A')}%"),
