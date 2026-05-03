@@ -150,6 +150,7 @@ class VendingMachineApp(tk.Tk):
     def show_maintenance_request(self): self.switch_frame(MaintenanceRequestScreen)
     def show_maintenance_tickets(self): self.switch_frame(MaintenanceTicketsScreen)
     def show_cash_level(self):          self.switch_frame(UpdateCashLevelScreen)
+    def show_restock_requests(self):    self.switch_frame(RestockRequestsScreen)
     def show_machine_info(self):        self.switch_frame(UpdateMachineInfoScreen)
     def show_transactions(self):        self.switch_frame(ViewTransactionsScreen)
     def show_manage_workers(self):       self.switch_frame(ManageWorkersScreen)
@@ -221,6 +222,9 @@ class HomeScreen(tk.Frame):
         self._card(body, "📦", "Update Inventory",
                    "View and restock machine slots",
                    self.master.show_inventory)
+        self._card(body, "📋", "View Restocker Requests",
+                   "See open product, coin, and bill requests",
+                   self.master.show_restock_requests)
         self._card(body, "💵", "Update Cash Level",
                    "Collect cash or refill coins",
                    self.master.show_cash_level)
@@ -581,6 +585,8 @@ class RecordSaleScreen(tk.Frame):
             db_connection.update_slot_count(p["code"], new_count)
             # System-triggered: auto-generate restock request if stock is low
             db_connection.check_and_create_restock_request(p["code"])
+            # System-triggered: also surface cash threshold breaches (coins low / bills high)
+            db_connection.check_and_create_money_handler_requests(self.master.machine_id)
 
         except Exception as e:
             messagebox.showerror("Database Error", f"Could not record sale:\n{e}")
@@ -1220,6 +1226,145 @@ class MaintenanceTicketsScreen(tk.Frame):
 
 
 # ═══════════════════════════════════════════════════════════════
+# View Restocker Requests Screen (read-only)
+# System auto-creates rows after sales when slots run low or cash
+# crosses MoneyHandler thresholds; this screen surfaces the queue.
+# Resolution happens via Update Inventory or Update Cash Level.
+# ═══════════════════════════════════════════════════════════════
+class RestockRequestsScreen(tk.Frame):
+    PRODUCT = "Product Restock"
+    COLLECT = "Cash Collection"
+    REFILL  = "Coin Refill"
+    CATEGORIES = ["All Requests", PRODUCT, COLLECT, REFILL]
+
+    def __init__(self, master):
+        super().__init__(master, bg=BG_MAIN)
+
+        try:
+            self.requests = db_connection.get_open_restock_requests()
+        except Exception as e:
+            messagebox.showerror("Database Error", f"Could not load restock requests:\n{e}")
+            self.requests = []
+
+        # Classify each request once based on its reason text.
+        for r in self.requests:
+            r["_kind"] = self._classify(r.get("ReasonForRequest", ""))
+
+        self.filtered = list(self.requests)
+        self._build()
+
+    @classmethod
+    def _classify(cls, reason):
+        text = (reason or "").lower()
+        if "bills above" in text:
+            return cls.COLLECT
+        if "coins below" in text:
+            return cls.REFILL
+        if "slot" in text:
+            return cls.PRODUCT
+        return cls.PRODUCT
+
+    def _build(self):
+        screen_header(self, "📋  View Restocker Requests",
+                      self.master.show_home, self.master.machine_info)
+        self._filter_bar()
+
+        body = tk.Frame(self, bg=BG_MAIN)
+        body.pack(fill="both", expand=True, padx=20, pady=16)
+
+        self._list_frame = tk.Frame(body, bg=BG_MAIN)
+        self._list_frame.pack(fill="both", expand=True)
+        self._render_list()
+
+    def _filter_bar(self):
+        bar = tk.Frame(self, bg=BG_WHITE, height=40,
+                       highlightthickness=1, highlightbackground=BORDER)
+        bar.pack(fill="x")
+        bar.pack_propagate(False)
+
+        tk.Label(bar, text="Filter by type:", font=("Segoe UI", 9),
+                 fg=TEXT_MID, bg=BG_WHITE).pack(side="left", padx=(16, 6), pady=10)
+
+        self.filter_var = tk.StringVar(value=self.CATEGORIES[0])
+        cb = ttk.Combobox(bar, textvariable=self.filter_var, values=self.CATEGORIES,
+                          state="readonly", font=("Segoe UI", 9), width=24)
+        cb.pack(side="left", pady=8)
+        cb.bind("<<ComboboxSelected>>", self._on_filter_change)
+
+        # Right-aligned count of currently displayed requests.
+        self.count_label = tk.Label(bar, text="", font=("Segoe UI", 9),
+                                    fg=TEXT_LIGHT, bg=BG_WHITE)
+        self.count_label.pack(side="right", padx=16)
+
+    def _on_filter_change(self, event=None):
+        choice = self.filter_var.get()
+        if choice == self.CATEGORIES[0]:
+            self.filtered = list(self.requests)
+        else:
+            self.filtered = [r for r in self.requests if r["_kind"] == choice]
+        for w in self._list_frame.winfo_children():
+            w.destroy()
+        self._render_list()
+
+    def _render_list(self):
+        self.count_label.configure(text=f"{len(self.filtered)} open")
+
+        if not self.filtered:
+            ok = tk.Frame(self._list_frame, bg=GREEN_BG,
+                          highlightthickness=1, highlightbackground=GREEN)
+            ok.pack(fill="x")
+            tk.Label(ok, text="✅  No open restock requests.",
+                     font=("Segoe UI", 10), fg=GREEN, bg=GREEN_BG
+                     ).pack(padx=16, pady=14)
+            return
+
+        for r in self.filtered:
+            self._request_card(self._list_frame, r)
+
+    def _request_card(self, parent, r):
+        card = tk.Frame(parent, bg=BG_WHITE,
+                        highlightthickness=1, highlightbackground=BORDER)
+        card.pack(fill="x", pady=4, ipady=2)
+
+        top = tk.Frame(card, bg=BG_WHITE)
+        top.pack(fill="x", padx=14, pady=(10, 2))
+        tk.Label(top, text=f"RR-{r['RestockRequestID']}",
+                 font=("Segoe UI", 10, "bold"), fg=ACCENT, bg=BG_WHITE
+                 ).pack(side="left")
+        tk.Label(top, text=r["_kind"], font=("Segoe UI", 9, "bold"),
+                 fg=TEXT_MID, bg=BG_WHITE).pack(side="left", padx=(10, 0))
+        tk.Label(top, text=str(r.get("DateRequested", "")),
+                 font=("Segoe UI", 9), fg=TEXT_LIGHT, bg=BG_WHITE
+                 ).pack(side="right")
+
+        tk.Label(card, text=r.get("ReasonForRequest", ""),
+                 font=("Segoe UI", 9), fg=TEXT_MID, bg=BG_WHITE,
+                 wraplength=820, justify="left", anchor="w"
+                 ).pack(fill="x", padx=14, pady=(0, 4))
+
+        bottom = tk.Frame(card, bg=BG_WHITE)
+        bottom.pack(fill="x", padx=14, pady=(0, 10))
+        worker = r.get("WorkerName") or f"Worker #{r.get('ServiceWorkerID')}"
+        tk.Label(bottom, text=f"Assigned: {worker}",
+                 font=("Segoe UI", 9), fg=TEXT_LIGHT, bg=BG_WHITE, anchor="w"
+                 ).pack(side="left")
+        tk.Button(bottom, text="✓ Resolved",
+                  font=("Segoe UI", 9, "bold"), fg=BG_WHITE, bg=GREEN,
+                  activebackground=GREEN, activeforeground=BG_WHITE,
+                  relief="flat", cursor="hand2", padx=10, pady=2,
+                  command=lambda rid=int(r["RestockRequestID"]): self._resolve(rid)
+                  ).pack(side="right")
+
+    def _resolve(self, request_id):
+        try:
+            db_connection.resolve_restock_request_by_id(request_id)
+        except Exception as e:
+            messagebox.showerror("Database Error", f"Could not resolve request:\n{e}")
+            return
+        self.master.show_restock_requests()
+
+
+# ═══════════════════════════════════════════════════════════════
 # Use Case 5: Update Cash Level Screen
 # Restocker logs a cash collection or a coin change refill.
 # System side effects: resolves open cash or change alerts.
@@ -1239,6 +1384,11 @@ class UpdateCashLevelScreen(tk.Frame):
             self.currency_breakdown = db_connection.get_currency_breakdown(self.master.machine_id)
         except Exception:
             self.currency_breakdown = []
+
+        try:
+            self.currency_details = db_connection.get_currency_details(self.master.machine_id)
+        except Exception:
+            self.currency_details = []
 
         try:
             self.workers = db_connection.get_service_workers(master.machine_id)
@@ -1342,38 +1492,108 @@ class UpdateCashLevelScreen(tk.Frame):
                  fg=TEXT_DARK, bg=ACCENT_LT).pack(side="right", padx=14)
 
     def _action_form(self, parent):
-        """Right-side form for logging a cash collection or change refill."""
+        """Right-side form for refilling or collecting per-denomination."""
         pad = tk.Frame(parent, bg=BG_WHITE)
-        pad.pack(fill="both", expand=True, padx=24, pady=24)
+        pad.pack(fill="both", expand=True, padx=20, pady=20)
 
         tk.Label(pad, text="Log an Action",
                  font=("Segoe UI", 13, "bold"), fg=TEXT_DARK, bg=BG_WHITE).pack(anchor="w")
-        tk.Frame(pad, bg=BORDER, height=1).pack(fill="x", pady=(4, 16))
+        tk.Frame(pad, bg=BORDER, height=1).pack(fill="x", pady=(4, 12))
 
-        # Action type selector
+        # Mode toggle: Refill or Collect — applies per-denomination below.
         tk.Label(pad, text="Action Type", font=("Segoe UI", 10, "bold"),
                  fg=TEXT_MID, bg=BG_WHITE).pack(anchor="w")
-        self.action_type = tk.StringVar(value="collect")
+        self.action_type = tk.StringVar(value="refill")
         af = tk.Frame(pad, bg=BG_WHITE)
-        af.pack(anchor="w", pady=(4, 16))
-        for val, label in [("collect", "💰  Collect Cash (Bills)"),
-                            ("refill",  "🔄  Refill Change (Coins)")]:  # edit: changed emoji here to 🔄 because it was showing a ? box
+        af.pack(anchor="w", pady=(4, 12))
+        for val, label in [("refill",  "🔄  Refill"),
+                           ("collect", "💰  Collect")]:
             tk.Radiobutton(af, text=label, variable=self.action_type, value=val,
                            font=("Segoe UI", 10), fg=TEXT_DARK, bg=BG_WHITE,
-                           selectcolor=ACCENT_LT, activebackground=BG_WHITE
-                           ).pack(anchor="w", pady=3)
+                           selectcolor=ACCENT_LT, activebackground=BG_WHITE,
+                           command=self._refresh_preview).pack(side="left", padx=(0, 14))
 
-        self.amount_var = tk.DoubleVar()
-        labeled_entry(pad, "Amount ($)", var=self.amount_var, bg=BG_WHITE)
+        # Per-denomination grid: one row per Currency. Refill mode uses the count
+        # entry; collect mode uses the entry OR the "Empty" checkbox (sets to 0).
+        tk.Label(pad, text="Per-Denomination", font=("Segoe UI", 10, "bold"),
+                 fg=TEXT_MID, bg=BG_WHITE).pack(anchor="w", pady=(2, 4))
+
+        hdr = tk.Frame(pad, bg=ACCENT, height=24)
+        hdr.pack(fill="x")
+        hdr.pack_propagate(False)
+        for h, w in [("Denom", 6), ("Cur/Max", 9), ("Count", 6), ("Empty", 6)]:
+            tk.Label(hdr, text=h, font=("Segoe UI", 8, "bold"),
+                     fg=BG_WHITE, bg=ACCENT, width=w, anchor="w"
+                     ).pack(side="left", padx=4, pady=3)
+
+        self.denom_inputs = []
+        for i, c in enumerate(self.currency_details):
+            row_bg = BG_WHITE if i % 2 == 0 else BG_SIDEBAR
+            row = tk.Frame(pad, bg=row_bg, height=28)
+            row.pack(fill="x")
+            row.pack_propagate(False)
+
+            worth = float(c.get("CurrencyWorth") or 0)
+            cur = int(c.get("CurrentAmount") or 0)
+            max_amt = c.get("MaxAmount")
+            denom_label = f"${worth:.2f}" if worth >= 1.0 else f"{int(worth * 100)}¢"
+            cap_label = f"{cur}/{max_amt}" if max_amt is not None else f"{cur}/—"
+
+            tk.Label(row, text=denom_label, font=("Segoe UI", 9, "bold"),
+                     fg=TEXT_DARK, bg=row_bg, width=6, anchor="w"
+                     ).pack(side="left", padx=4)
+            tk.Label(row, text=cap_label, font=("Segoe UI", 9),
+                     fg=TEXT_MID, bg=row_bg, width=9, anchor="w"
+                     ).pack(side="left", padx=4)
+
+            count_var = tk.StringVar(value="0")
+            count_var.trace_add("write", lambda *_: self._refresh_preview())
+            entry = tk.Entry(row, textvariable=count_var, width=6,
+                             font=("Segoe UI", 9), justify="right")
+            entry.pack(side="left", padx=4)
+
+            empty_var = tk.BooleanVar(value=False)
+            chk = tk.Checkbutton(row, variable=empty_var, bg=row_bg,
+                                 activebackground=row_bg,
+                                 command=self._refresh_preview)
+            chk.pack(side="left", padx=4)
+
+            self.denom_inputs.append({
+                "currency_id": int(c["CurrencyID"]),
+                "worth": worth,
+                "current": cur,
+                "max": max_amt,
+                "count_var": count_var,
+                "empty_var": empty_var,
+            })
+
+        # Quick-fill helpers
+        helpers = tk.Frame(pad, bg=BG_WHITE)
+        helpers.pack(fill="x", pady=(8, 2))
+        tk.Button(helpers, text="Collect All",
+                  font=("Segoe UI", 9, "bold"), fg=BG_WHITE, bg=ACCENT,
+                  activebackground=ACCENT, activeforeground=BG_WHITE,
+                  relief="flat", cursor="hand2", padx=10, pady=2,
+                  command=self._collect_all).pack(side="left")
+        tk.Button(helpers, text="Clear",
+                  font=("Segoe UI", 9), fg=TEXT_MID, bg=BG_SIDEBAR,
+                  activebackground=BG_SIDEBAR, relief="flat", cursor="hand2",
+                  padx=10, pady=2, command=self._clear_inputs).pack(side="left", padx=6)
+
+        # Live total preview of what the Apply button will do.
+        self.preview_label = tk.Label(pad, text="Refilling: $0.00",
+                                      font=("Segoe UI", 10, "bold"),
+                                      fg=ACCENT, bg=BG_WHITE)
+        self.preview_label.pack(anchor="w", pady=(10, 2))
 
         tk.Label(pad, text="Your Worker", font=("Segoe UI", 10, "bold"),
-                 fg=TEXT_MID, bg=BG_WHITE).pack(anchor="w", pady=(10, 2))
+                 fg=TEXT_MID, bg=BG_WHITE).pack(anchor="w", pady=(8, 2))
         self.worker_var = tk.StringVar()
         worker_options = [f"{w['Name']} (ID: {w['WorkerID']})" for w in self.workers]
         self.worker_combo = ttk.Combobox(pad, textvariable=self.worker_var,
                                          values=worker_options, state="readonly",
-                                         font=("Segoe UI", 11))
-        self.worker_combo.pack(fill="x", ipady=4)
+                                         font=("Segoe UI", 10))
+        self.worker_combo.pack(fill="x", ipady=2)
         if worker_options:
             self.worker_combo.set(worker_options[0])
 
@@ -1382,16 +1602,60 @@ class UpdateCashLevelScreen(tk.Frame):
         self.confirm_label = tk.Label(pad, text="", font=("Segoe UI", 9),
                                       fg=GREEN, bg=BG_WHITE,
                                       wraplength=280, justify="left")
-        self.confirm_label.pack(anchor="w", pady=(12, 0))
+        self.confirm_label.pack(anchor="w", pady=(8, 0))
+
+    def _collect_deltas(self):
+        """Resolves UI inputs to a list of {currency_id, count, worth} for the action.
+        Returns (deltas, total_dollars). Invalid count entries are treated as 0."""
+        action = self.action_type.get()
+        deltas = []
+        total = 0.0
+        for d in self.denom_inputs:
+            try:
+                count = int(d["count_var"].get() or 0)
+            except ValueError:
+                count = 0
+            if action == "collect" and d["empty_var"].get():
+                count = d["current"]
+            if count <= 0:
+                continue
+            deltas.append({
+                "currency_id": d["currency_id"],
+                "count": count,
+                "worth": d["worth"],
+            })
+            total += count * d["worth"]
+        return deltas, total
+
+    def _refresh_preview(self):
+        action = self.action_type.get()
+        _, total = self._collect_deltas()
+        verb = "Refilling" if action == "refill" else "Collecting"
+        self.preview_label.configure(text=f"{verb}: ${total:.2f}")
+
+    def _collect_all(self):
+        """Switches to Collect mode and marks every denomination to be emptied."""
+        self.action_type.set("collect")
+        for d in self.denom_inputs:
+            d["empty_var"].set(True)
+            d["count_var"].set(str(d["current"]))
+        self._refresh_preview()
+
+    def _clear_inputs(self):
+        for d in self.denom_inputs:
+            d["empty_var"].set(False)
+            d["count_var"].set("0")
+        self._refresh_preview()
 
     def _apply(self):
-        """Validates input and writes the cash collection or refill to the database."""
-        amount   = self.amount_var.get()
+        """Validates per-denomination inputs and writes the adjustment to the DB."""
+        action = self.action_type.get()
         selected = self.worker_var.get()
-        action   = self.action_type.get()
+        deltas, total = self._collect_deltas()
 
-        if amount <= 0:
-            messagebox.showwarning("Invalid Amount", "Please enter an amount greater than $0.")
+        if not deltas:
+            messagebox.showwarning("Nothing to do",
+                                   "Enter a count for at least one denomination.")
             return
         if not selected:
             messagebox.showwarning("Missing Info", "Please select a worker.")
@@ -1404,34 +1668,76 @@ class UpdateCashLevelScreen(tk.Frame):
             return
         worker_id = worker["WorkerID"]
 
+        if action == "refill":
+            # Per-row coin cap.
+            for d in deltas:
+                row = next(r for r in self.denom_inputs
+                           if r["currency_id"] == d["currency_id"])
+                if row["max"] is not None and row["current"] + d["count"] > int(row["max"]):
+                    denom_label = (f"${row['worth']:.2f}" if row["worth"] >= 1.0
+                                   else f"{int(row['worth']*100)}¢")
+                    messagebox.showwarning(
+                        "Over Capacity",
+                        f"Refilling {d['count']} of {denom_label} would exceed "
+                        f"the max ({row['max']}). Currently has {row['current']}.")
+                    return
+            # Global bill cap (BillMaxAmount in MoneyHandler).
+            if self.money_info:
+                bill_cap = float(self.money_info.get("BillMaxAmount") or 0)
+                if bill_cap > 0:
+                    bill_total_after = sum(
+                        r["current"] * r["worth"] for r in self.denom_inputs
+                        if r["worth"] >= 1.0
+                    ) + sum(d["count"] * d["worth"] for d in deltas
+                            if d["worth"] >= 1.0)
+                    if bill_total_after > bill_cap:
+                        messagebox.showwarning(
+                            "Over Bill Capacity",
+                            f"This refill would push bill total to "
+                            f"${bill_total_after:.2f}, exceeding cap of ${bill_cap:.2f}.")
+                        return
+        else:
+            # Collect can't take more than what's there (the Empty checkbox enforces this).
+            for d in deltas:
+                row = next(r for r in self.denom_inputs
+                           if r["currency_id"] == d["currency_id"])
+                if d["count"] > row["current"]:
+                    denom_label = (f"${row['worth']:.2f}" if row["worth"] >= 1.0
+                                   else f"{int(row['worth']*100)}¢")
+                    messagebox.showwarning(
+                        "Not Enough",
+                        f"Cannot collect {d['count']} of {denom_label}; "
+                        f"only {row['current']} present.")
+                    return
+
         try:
-            if action == "collect":
-                db_connection.record_cash_collection(
-                    machine_id=self.master.machine_id, worker_id=worker_id,
-                    amount_collected=amount,
-                    date=datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
-                # System-triggered: resolve any active cash collection alert
-                db_connection.resolve_cash_collection_alert(self.master.machine_id)
-                action_label = "Cash Collected"
-            else:
-                db_connection.record_change_refill(
-                    machine_id=self.master.machine_id, worker_id=worker_id,
-                    amount_added=amount,
-                    date=datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
-                # System-triggered: resolve any active change refill alert
+            db_connection.apply_cash_adjustments(
+                machine_id=self.master.machine_id,
+                worker_id=worker_id,
+                action=action,
+                deltas=deltas,
+                date=datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
+            # Resolve any matching open auto-alerts the operator just addressed.
+            if action == "refill" and any(d["worth"] < 1.0 for d in deltas):
                 db_connection.resolve_change_refill_alert(self.master.machine_id)
-                action_label = "Change Refilled"
+            if action == "collect" and any(d["worth"] >= 1.0 for d in deltas):
+                db_connection.resolve_cash_collection_alert(self.master.machine_id)
         except Exception as e:
             messagebox.showerror("Database Error", f"Could not update cash level:\n{e}")
             return
 
+        action_label = "Cash Refilled" if action == "refill" else "Cash Collected"
+        breakdown = ", ".join(
+            f"{d['count']}×"
+            + (f"${d['worth']:.2f}" if d["worth"] >= 1.0 else f"{int(d['worth']*100)}¢")
+            for d in deltas
+        )
         self.confirm_label.configure(
             text=(f"✅  {action_label}\n{'─'*30}\n"
-                  f"Amount:      ${amount:.2f}\n"
-                  f"Worker:      {selected}\n"
-                  f"Time:        {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}"))
-        self.amount_var.set(0.0)
-        # Reload the screen so the updated Cash Total is immediately visible
+                  f"Total:    ${total:.2f}\n"
+                  f"Items:    {breakdown}\n"
+                  f"Worker:   {selected}"))
+        # Reload so the status panel reflects new counts.
         self.destroy()
         self.master.show_cash_level()
 

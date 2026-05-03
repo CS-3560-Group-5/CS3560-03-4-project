@@ -456,6 +456,22 @@ def resolve_restock_request(slot_code):
     conn.close()
 
 
+# Marks a single restock request resolved by its primary key.
+# Used by the "Resolved" button in the View Restocker Requests screen
+# for manual dismissal when the auto-resolve path didn't trigger.
+def resolve_restock_request_by_id(request_id):
+    conn = get_connection()
+    cursor = conn.cursor()
+    cursor.execute("""
+        UPDATE RestockRequest
+        SET DateResolved = %s
+        WHERE RestockRequestID = %s AND DateResolved IS NULL
+    """, (datetime.now().date(), int(request_id)))
+    conn.commit()
+    cursor.close()
+    conn.close()
+
+
 # ═══════════════════════════════════════════════════════════════
 # MAINTENANCE REQUEST FUNCTIONS
 # Used by the Maintenance Request and Close Maintenance Ticket screens
@@ -547,132 +563,172 @@ def get_money_handler(machine_id):
     return result
 
 
-# Logs a cash (bill) collection event in the database
-# Resets the bill amount in the MoneyHandler to zero after collection
-# The restocker empties the bill storage, so BillMaxAmount reflects the cleared state
-def record_cash_collection(machine_id, worker_id, amount_collected, date):
+# Applies a per-denomination cash adjustment from the Update Cash Level screen
+# action: "refill" adds coin/bill counts; "collect" subtracts (clamped to 0)
+# deltas: list of {"currency_id": int, "count": int, "worth": float}
+# Logs a single RestockRequest summarizing what was applied (already resolved,
+# since this records completed work, not a pending request).
+def apply_cash_adjustments(machine_id, worker_id, action, deltas, date):
+    if action not in ("refill", "collect"):
+        raise ValueError(f"Unknown cash action: {action!r}")
+    nonzero = [d for d in deltas if int(d.get("count", 0)) > 0]
+    if not nonzero:
+        return
+
     conn = get_connection()
     cursor = conn.cursor()
 
-    # Insert a restock request to log the cash collection event with the worker and date
+    parts = []
+    for d in sorted(nonzero, key=lambda x: float(x["worth"])):
+        worth = float(d["worth"])
+        label = f"${worth:.2f}" if worth >= 1.0 else f"${worth:.2f}"
+        parts.append(f"{int(d['count'])}× {label}")
+    verb = "added" if action == "refill" else "collected"
+    prefix = "Cash refill" if action == "refill" else "Cash collection"
+    reason = f"{prefix}: {', '.join(parts)} {verb} by worker {worker_id}."
+
     cursor.execute("""
         INSERT INTO RestockRequest (ServiceWorkerID, MoneyHandlerID, DateRequested, DateResolved, ReasonForRequest)
-        SELECT %s, mh.MoneyHandlerID, %s, NULL, %s
+        SELECT %s, mh.MoneyHandlerID, %s, %s, %s
         FROM MoneyHandler mh
         WHERE mh.MachineID = %s
         LIMIT 1
-    """, (worker_id, date,
-          f"Cash collection: ${amount_collected:.2f} collected by worker {worker_id}.",
-          machine_id))
+    """, (worker_id, date, datetime.now().date(), reason, machine_id))
 
-    # Subtract the collected dollar amount from bill denominations (don't go below 0)
-    cursor.execute("""
-        UPDATE Currency
-        SET CurrentAmount = GREATEST(0, CurrentAmount - %s)
-        WHERE MoneyHandlerID = (
-            SELECT MoneyHandlerID FROM MoneyHandler WHERE MachineID = %s LIMIT 1
-        )
-        AND CurrencyWorth >= 1.0
-        LIMIT 1
-    """, (round(amount_collected), machine_id))
+    if action == "refill":
+        for d in nonzero:
+            # Coins have a MaxAmount cap; bills have NULL (no per-row cap).
+            cursor.execute("""
+                UPDATE Currency
+                SET CurrentAmount = LEAST(
+                    COALESCE(MaxAmount, CurrentAmount + %s),
+                    CurrentAmount + %s
+                )
+                WHERE CurrencyID = %s
+            """, (int(d["count"]), int(d["count"]), int(d["currency_id"])))
+    else:
+        for d in nonzero:
+            cursor.execute("""
+                UPDATE Currency
+                SET CurrentAmount = GREATEST(0, CurrentAmount - %s)
+                WHERE CurrencyID = %s
+            """, (int(d["count"]), int(d["currency_id"])))
 
     conn.commit()
     cursor.close()
     conn.close()
 
 
-# Logs a coin (change) refill event in the database
-# Updates the MoneyHandler to reflect the added coins
-# Called when a restocker adds change to bring coins above the minimum threshold
-def record_change_refill(machine_id, worker_id, amount_added, date):
-    conn = get_connection()
-    cursor = conn.cursor()
-
-    # Insert a restock request to log the change refill event
-    cursor.execute("""
-        INSERT INTO RestockRequest (ServiceWorkerID, MoneyHandlerID, DateRequested, DateResolved, ReasonForRequest)
-        SELECT %s, mh.MoneyHandlerID, %s, NULL, %s
-        FROM MoneyHandler mh
-        WHERE mh.MachineID = %s
-        LIMIT 1
-    """, (worker_id, date,
-          f"Change refill: ${amount_added:.2f} in coins added by worker {worker_id}.",
-          machine_id))
-
-    # Add coins to the first coin denomination (CurrencyWorth < 1.0).
-    # amount_added is in dollars; divide by CurrencyWorth ($0.01) to get coin count.
-    coin_count = round(amount_added / 0.01)
-    cursor.execute("""
-        UPDATE Currency
-        SET CurrentAmount = CurrentAmount + %s
-        WHERE MoneyHandlerID = (
-            SELECT MoneyHandlerID FROM MoneyHandler WHERE MachineID = %s LIMIT 1
-        )
-        AND CurrencyWorth < 1.0
-        LIMIT 1
-    """, (coin_count, machine_id))
-
-    conn.commit()
-    cursor.close()
-    conn.close()
-
-
-# Resolves the most recent open cash collection alert for a machine
-# Called automatically after a restocker logs a successful cash collection
-# Marks the associated restock request as resolved with today's date
+# Resolves all open auto-generated bill-collection alerts for a machine.
+# Called after the operator collects bills via Update Cash Level — the next
+# sale will recreate the alert if bills are still above the threshold.
 def resolve_cash_collection_alert(machine_id):
     conn = get_connection()
     cursor = conn.cursor()
-
-    # Subquery finds the most recent open cash-collection request ID for this machine;
-    # the outer UPDATE is single-table so ORDER BY + LIMIT are legal in MySQL.
     cursor.execute("""
-        UPDATE RestockRequest
-        SET DateResolved = %s
-        WHERE RestockRequestID = (
-            SELECT id FROM (
-                SELECT rr.RestockRequestID AS id
-                FROM RestockRequest rr
-                JOIN MoneyHandler mh ON rr.MoneyHandlerID = mh.MoneyHandlerID
-                WHERE mh.MachineID = %s
-                  AND rr.DateResolved IS NULL
-                  AND rr.ReasonForRequest LIKE '%%Cash collection%%'
-                ORDER BY rr.RestockRequestID DESC
-                LIMIT 1
-            ) AS t
-        )
+        UPDATE RestockRequest rr
+        JOIN MoneyHandler mh ON rr.MoneyHandlerID = mh.MoneyHandlerID
+        SET rr.DateResolved = %s
+        WHERE mh.MachineID = %s
+          AND rr.DateResolved IS NULL
+          AND rr.ReasonForRequest LIKE '%%bills above restock%%'
     """, (datetime.now().date(), machine_id))
-
     conn.commit()
     cursor.close()
     conn.close()
 
 
-# Resolves the most recent open change refill alert for a machine
-# Called automatically after a restocker logs a successful coin refill
-# Marks the associated restock request as resolved with today's date
+# Resolves all open auto-generated coin-refill alerts for a machine.
+# Called after the operator refills coins via Update Cash Level.
 def resolve_change_refill_alert(machine_id):
     conn = get_connection()
     cursor = conn.cursor()
-
-    # Subquery finds the most recent open change-refill request ID for this machine;
-    # the outer UPDATE is single-table so ORDER BY + LIMIT are legal in MySQL.
     cursor.execute("""
-        UPDATE RestockRequest
-        SET DateResolved = %s
-        WHERE RestockRequestID = (
-            SELECT id FROM (
-                SELECT rr.RestockRequestID AS id
-                FROM RestockRequest rr
-                JOIN MoneyHandler mh ON rr.MoneyHandlerID = mh.MoneyHandlerID
-                WHERE mh.MachineID = %s
-                  AND rr.DateResolved IS NULL
-                  AND rr.ReasonForRequest LIKE '%%Change refill%%'
-                ORDER BY rr.RestockRequestID DESC
-                LIMIT 1
-            ) AS t
-        )
+        UPDATE RestockRequest rr
+        JOIN MoneyHandler mh ON rr.MoneyHandlerID = mh.MoneyHandlerID
+        SET rr.DateResolved = %s
+        WHERE mh.MachineID = %s
+          AND rr.DateResolved IS NULL
+          AND rr.ReasonForRequest LIKE '%%coins below restock%%'
     """, (datetime.now().date(), machine_id))
+    conn.commit()
+    cursor.close()
+    conn.close()
+
+
+# Inspects current cash state vs MoneyHandler thresholds and inserts an
+# auto restock request for any breach that doesn't already have an open one.
+# Called from RecordSaleScreen after a successful sale.
+def check_and_create_money_handler_requests(machine_id, worker_id=1):
+    conn = get_connection()
+    cursor = conn.cursor(dictionary=True)
+
+    cursor.execute("""
+        SELECT mh.MoneyHandlerID, mh.BillMaxAmount, mh.BillRestockMaxThreshold,
+               mh.CoinRestockMinThreshold
+        FROM MoneyHandler mh
+        WHERE mh.MachineID = %s
+        LIMIT 1
+    """, (machine_id,))
+    mh = cursor.fetchone()
+    if not mh:
+        cursor.close()
+        conn.close()
+        return
+
+    money_handler_id = mh["MoneyHandlerID"]
+    bill_max = float(mh["BillMaxAmount"] or 0)
+    bill_pct = float(mh["BillRestockMaxThreshold"] or 0)
+    coin_min_pct = float(mh["CoinRestockMinThreshold"] or 0)
+
+    cursor.execute("""
+        SELECT CurrencyID, CurrencyWorth, CurrentAmount, MaxAmount
+        FROM Currency
+        WHERE MoneyHandlerID = %s
+    """, (money_handler_id,))
+    rows = cursor.fetchall()
+
+    today = datetime.now().date()
+
+    def already_open(reason_like):
+        cursor.execute("""
+            SELECT 1 FROM RestockRequest
+            WHERE MoneyHandlerID = %s AND DateResolved IS NULL
+              AND ReasonForRequest LIKE %s
+            LIMIT 1
+        """, (money_handler_id, reason_like))
+        return cursor.fetchone() is not None
+
+    # Bills above max-threshold (combined dollar value across all bills)
+    bill_total = sum(float(r["CurrencyWorth"]) * int(r["CurrentAmount"] or 0)
+                     for r in rows if float(r["CurrencyWorth"]) >= 1.0)
+    if bill_max > 0 and bill_pct > 0 and bill_total >= bill_max * (bill_pct / 100.0):
+        reason = 'Auto restock request: bills above restock threshold.'
+        if not already_open('%bills above restock%'):
+            cursor.execute("""
+                INSERT INTO RestockRequest
+                  (ServiceWorkerID, MoneyHandlerID, DateRequested, DateResolved, ReasonForRequest)
+                VALUES (%s, %s, %s, NULL, %s)
+            """, (worker_id, money_handler_id, today, reason))
+
+    # Coins below their per-row min-threshold (percentage of MaxAmount)
+    for r in rows:
+        worth = float(r["CurrencyWorth"])
+        if worth >= 1.0:
+            continue
+        max_amt = r["MaxAmount"]
+        cur = int(r["CurrentAmount"] or 0)
+        if not max_amt or coin_min_pct <= 0:
+            continue
+        if cur <= int(max_amt) * (coin_min_pct / 100.0):
+            denom_label = f"${worth:.2f}"
+            reason = f'Auto restock request: "{denom_label}" coins below restock threshold.'
+            if not already_open(f'%"{denom_label}" coins below restock%'):
+                cursor.execute("""
+                    INSERT INTO RestockRequest
+                      (ServiceWorkerID, MoneyHandlerID, DateRequested, DateResolved, ReasonForRequest)
+                    VALUES (%s, %s, %s, NULL, %s)
+                """, (worker_id, money_handler_id, today, reason))
 
     conn.commit()
     cursor.close()
@@ -851,6 +907,24 @@ def get_currency_breakdown(machine_id):
     cursor.close()
     conn.close()
     return results
+
+# Returns one row per Currency with everything the cash UI needs
+# (id, denomination value, current count, max-per-row cap or None for bills).
+def get_currency_details(machine_id):
+    conn = get_connection()
+    cursor = conn.cursor(dictionary=True)
+    cursor.execute("""
+        SELECT c.CurrencyID, c.CurrencyWorth, c.CurrentAmount, c.MaxAmount
+        FROM Currency c
+        JOIN MoneyHandler mh ON c.MoneyHandlerID = mh.MoneyHandlerID
+        WHERE mh.MachineID = %s
+        ORDER BY c.CurrencyWorth DESC
+    """, (machine_id,))
+    results = cursor.fetchall()
+    cursor.close()
+    conn.close()
+    return results
+
 
 # added to get currency max amounts
 def get_total_currency_amounts(machine_id):
