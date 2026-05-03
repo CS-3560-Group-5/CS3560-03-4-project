@@ -200,7 +200,51 @@ def record_card_sale(product_id, machine_id, tax, card_fee, account_charged):
     conn.close()
     return sale_number
 
-# checks to see if the db can take x amount of money from a transaction
+# checks to see if the db can give out x amount of money for change. false if no, true if yes
+def check_cash_out(machine_id, change_out):
+    if change_out <= 0:
+        return True
+    
+    conn = get_connection()
+    cursor = conn.cursor()
+
+    net_dollars = change_out
+    denominations = (5.0, 1.0, .25, .1, .05, .01)   # hardcoded bc only these bills will be in machine
+    denom_count = [0, 0, 0, 0 ,0 ,0]
+
+    # calc the number of each coin/bill
+    for i, n in enumerate(denominations):
+        if net_dollars <= 0:
+            break
+        update_amt = net_dollars / n
+        if update_amt < 1:
+            continue
+        update_amt = math.floor(update_amt)
+        net_dollars = round(net_dollars - (update_amt * n), 2)
+        denom_count[i] = update_amt
+
+    cursor.execute("""
+        SELECT CurrencyWorth, CurrentAmount FROM `Currency` 
+        WHERE MoneyHandlerID = (
+                SELECT MoneyHandlerID FROM MoneyHandler WHERE MachineID = %s LIMIT 1
+            );                        
+    """, tuple(str(machine_id)))
+    curr_amounts = cursor.fetchall()
+    denom_count.reverse()
+    
+    # check if CurrentAmount - denom_count is less than 0
+    for i, n in enumerate(denom_count):
+        if curr_amounts[i][1] - n < 0:
+            cursor.close()
+            conn.close()
+            return False
+    
+    cursor.close()
+    conn.close()
+    return True
+    
+
+# checks to see if the db can take x amount of money from a transaction. false if no, true if yes
 def check_cash_in(machine_id, cash_given=0):
     if cash_given <= 0:
         return True
@@ -221,7 +265,6 @@ def check_cash_in(machine_id, cash_given=0):
             continue
         update_amt = math.floor(update_amt)
         net_dollars = round(net_dollars - (update_amt * n), 2)
-        #print("denom:"+str(n)+"$in:"+str(update_amt * n)+"$"+str(net_dollars))
         denom_count[i] = update_amt
     # see if any of the current amounts would be too full
     cursor.execute("""
@@ -292,7 +335,6 @@ def record_cash_sale(product_id, machine_id, tax, cash_given, price=0.0):
             continue
         update_amt = math.floor(update_amt)
         net_dollars = round(net_dollars - (update_amt * n), 2)
-        #print("denom:"+str(n)+"$in:"+str(update_amt * n)+"$"+str(net_dollars))
         cursor.execute("""
             UPDATE Currency
             SET CurrentAmount = CurrentAmount + %s
@@ -316,7 +358,6 @@ def record_cash_sale(product_id, machine_id, tax, cash_given, price=0.0):
             continue
         update_amt = math.floor(update_amt)
         net_dollars = round(net_dollars - (update_amt * n), 2)
-        #print("denom:"+str(n)+"$in:"+str(update_amt * n)+"$"+str(net_dollars))
         cursor.execute("""
             UPDATE Currency
             SET CurrentAmount = CurrentAmount - %s

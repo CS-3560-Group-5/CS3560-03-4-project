@@ -549,11 +549,15 @@ class RecordSaleScreen(tk.Frame):
                 messagebox.showerror("Insufficient Funds",
                                      f"Cash ${given:.2f} is less than total ${total:.2f}.")
                 return
-            if not db_connection.check_cash_in(self.master.machine_id, given):
+            if not db_connection.check_cash_in(self.master.machine_id, given):      # check if the machine can't take in any more money
                 messagebox.showerror("Machine Cash Too Full",
                                      f"Money must be emptied to take that amount. Try giving a smaller amount.")
                 return
             change        = round(given - total, 2)
+            if not db_connection.check_cash_out(self.master.machine_id, change):      # check if the machine can't give out any more money
+                messagebox.showerror("Machine Cash Not Full Enough For Change",
+                                     f"Money must be refilled to give change for that amount. Try giving a smaller amount.")
+                return
             receipt_extra = f"Cash Given:   ${given:.2f}\n    Change:       ${change:.2f}" # edit : added a few spaces for formatting
         else:
             last4 = self.card_entry.get().strip()
