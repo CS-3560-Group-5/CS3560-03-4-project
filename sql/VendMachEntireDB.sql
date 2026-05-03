@@ -42,7 +42,7 @@ CREATE TABLE `currency` (
 
 LOCK TABLES `currency` WRITE;
 /*!40000 ALTER TABLE `currency` DISABLE KEYS */;
-INSERT INTO `currency` VALUES (1,1,9,50,0.01),(2,1,35,60,0.05),(3,1,55,60,0.1),(4,1,30,60,0.25),(5,1,30,NULL,1),(6,1,32,NULL,5);
+INSERT INTO `currency` VALUES (1,1,9,50,0.01),(2,1,35,60,0.05),(3,1,55,60,0.1),(4,1,30,60,0.25),(5,1,30,NULL,1),(6,1,60,NULL,5);
 /*!40000 ALTER TABLE `currency` ENABLE KEYS */;
 UNLOCK TABLES;
 
@@ -134,7 +134,7 @@ CREATE TABLE `maintenancerequest` (
 
 LOCK TABLES `maintenancerequest` WRITE;
 /*!40000 ALTER TABLE `maintenancerequest` DISABLE KEYS */;
-INSERT INTO `maintenancerequest` VALUES (1,1,3,'2025-03-20','2025-03-21','Error in Button Module'),(2,1,1,'2026-03-25','2026-03-26','Error in Lighting Module'),(3,1,1,'2026-03-25',NULL,'Error in Lighting Module'),(4,1,3,'2025-03-20',NULL,'Error in Button Module'),(5,1,1,'2026-03-21',NULL,'Auto-Scheduled Servicing');
+INSERT INTO `maintenancerequest` VALUES (1,1,3,'2025-03-20','2025-03-21','Error in Button Module | Service Notes: Fixed'),(2,1,1,'2026-03-25','2026-03-26','Error in Lighting Module | Service Notes: Fixed'),(3,1,1,'2026-03-25',NULL,'Error in Lighting Module'),(4,1,3,'2025-03-20',NULL,'Error in Button Module'),(5,1,1,'2026-03-21',NULL,'Auto-Scheduled Servicing');
 /*!40000 ALTER TABLE `maintenancerequest` ENABLE KEYS */;
 UNLOCK TABLES;
 
@@ -227,7 +227,7 @@ CREATE TABLE `restockrequest` (
 
 LOCK TABLES `restockrequest` WRITE;
 /*!40000 ALTER TABLE `restockrequest` DISABLE KEYS */;
-INSERT INTO `restockrequest` VALUES (1,2,1,'2025-03-20','2025-03-21','Restock request in \"MoneyHandler\" : \"$.01\" coins below restock threshold.'),(2,2,1,'2026-03-25',NULL,'Restock request in \"MoneyHandler\" : bills above restock threshold.'),(3,2,NULL,'2026-03-30',NULL,'Restock request in \"MachineSlot\" : Slot \"2B\" Product \"Cheetos\" below restock threshold.'),(4,2,1,'2025-03-20','2025-03-21','Restock request in \"MoneyHandler\" : \"$.1\" coins above restock threshold.'),(5,2,NULL,'2025-03-20','2025-03-21','Restock request in \"MachineSlot\" : Slot \"1E\" Product \"Twinkie\" below restock threshold.');
+INSERT INTO `restockrequest` VALUES (1,2,1,'2025-03-20',NULL,'Restock request in \"MoneyHandler\" : \"$0.01\" coins below restock threshold.'),(2,2,1,'2026-03-25',NULL,'Restock request in \"MoneyHandler\" : bills above restock threshold.'),(3,2,NULL,'2026-03-30',NULL,'Restock request in \"MachineSlot\" : Slot \"2B\" Product \"Cheetos\" below restock threshold.'),(4,2,1,'2025-03-20',NULL,'Restock request in \"MoneyHandler\" : \"$0.1\" coins above restock threshold.'),(5,2,NULL,'2025-03-20','2025-03-21','Restock request in \"MachineSlot\" : Slot \"1E\" Product \"Twinkie\" below restock threshold.');
 /*!40000 ALTER TABLE `restockrequest` ENABLE KEYS */;
 UNLOCK TABLES;
 
@@ -258,7 +258,7 @@ CREATE TABLE `serviceworker` (
 
 LOCK TABLES `serviceworker` WRITE;
 /*!40000 ALTER TABLE `serviceworker` DISABLE KEYS */;
-INSERT INTO `serviceworker` VALUES (1,1,'John Doe','Technician','555-555-5555','JohnDoe@gmail.com','Repair Works Inc'),(2,1,'Jane Doe','Restocker','123-456-7890','JaneDoe@hotmail.com','Venders United'),(3,1,'Fred Nerks','Technician','000-000-0000','FredNerks@yahoo.com','Repair Works Inc');
+INSERT INTO `serviceworker` VALUES (1,1,'John Doe','Technician','555-555-5555','JohnDoe@gmail.com','Repair Works Inc'),(2,1,'Jane Doe','Restocker','123-456-7890','JaneDoe@hotmail.com','Venders United'),(3,1,'Fred Nerks','Technician','000-000-0000','FredNerks@yahoo.com','Repair Works Inc'), (4,1,'Joe Bloggs','Restocker','111-222-333','JoeBloggs@gmail.com','Stockers Inc');
 /*!40000 ALTER TABLE `serviceworker` ENABLE KEYS */;
 UNLOCK TABLES;
 

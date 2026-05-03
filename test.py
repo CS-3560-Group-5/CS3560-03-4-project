@@ -2,4 +2,4 @@ import db_connection
 
 
 
-print(db_connection.check_cash_out(1, .02))
+print(db_connection.get_random_service_worker("Restocker"))

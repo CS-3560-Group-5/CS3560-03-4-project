@@ -26,6 +26,11 @@ ORANGE_BG  = "#fff9db"   # Light orange background
 BORDER     = "#dee2f0"   # Subtle border color for cards and separators
 
 
+# Helper function : refreshes all restock requests
+def refresh_restock_requests():
+        db_connection.check_and_create_currency_restock_request_ALL()   # check currency for any bills/coins that need a request
+        db_connection.resolve_restock_request_currency_ALL()            # check currency for any bill/coin requests that need to be resolved
+
 # ── Helper: standard labeled input field ───────────────────────
 def labeled_entry(parent, label_text, var=None, height=None, bg=BG_WHITE):
     """Creates a label + entry pair. If height is given, returns a Text widget."""
@@ -329,6 +334,8 @@ class RecordSaleScreen(tk.Frame):
         self.cash_given = tk.DoubleVar()
         self.qty_labels = {}
 
+        refresh_restock_requests()
+
         # Load all slot and product data from the database
         try:
             self.products = db_connection.get_all_products_with_slots()
@@ -451,7 +458,7 @@ class RecordSaleScreen(tk.Frame):
         # Cash input field
         self.cash_frame = tk.Frame(pad, bg=BG_WHITE)
         self.cash_frame.pack(fill="x")
-        tk.Label(self.cash_frame, text="Cash Given ($)", font=("Segoe UI", 9),
+        tk.Label(self.cash_frame, text="Money Given", font=("Segoe UI", 9),
                  fg=TEXT_LIGHT, bg=BG_WHITE).pack(anchor="w")
         self.cash_entry = tk.Entry(self.cash_frame, textvariable=self.cash_given,
                                    font=("Segoe UI", 11), bg=BG_SIDEBAR, fg=TEXT_DARK,
@@ -562,13 +569,13 @@ class RecordSaleScreen(tk.Frame):
                 messagebox.showerror("Machine Cash Not Full Enough For Change",
                                      f"Money must be refilled to give change for that amount. Try giving a smaller amount.")
                 return
-            receipt_extra = f"Cash Given:   ${given:.2f}\n    Change:       ${change:.2f}" # edit : added a few spaces for formatting
+            receipt_extra = f"Money Given:   ${given:.2f}\n    Change:       ${change:.2f}" # edit : added a few spaces for formatting
         else:
             last4 = self.card_entry.get().strip()
             if not last4.isdigit() or len(last4) != 4:
                 messagebox.showerror("Card Error", "Please enter valid last 4 digits.")
                 return
-            receipt_extra = f"Card:         xxxx-{last4}\nCard Fee:     $0.00"
+            receipt_extra = f"Card:         xxxx-{last4}\n    Card Fee:     $0.00"
 
         # Record transaction and update inventory in the database
         try:
@@ -609,6 +616,9 @@ class RecordSaleScreen(tk.Frame):
             f"    Time: {datetime.now().strftime('%H:%M:%S')}\n    Thank you!"))
         self.receipt_frame.pack(fill="x", pady=(14, 0))
 
+        # update all restock requests
+        refresh_restock_requests()
+
         self.selected = None
         self._refresh_summary()
 
@@ -624,6 +634,8 @@ class UpdateInventoryScreen(tk.Frame):
     def __init__(self, master):
         super().__init__(master, bg=BG_MAIN)
         self.restock_vars = {}  # Maps slot code → IntVar for Add Qty input
+
+        refresh_restock_requests()
 
         try:
             self.all_products = db_connection.get_all_products_with_slots()
@@ -885,6 +897,8 @@ class UpdateInventoryScreen(tk.Frame):
         if not updated:
             self.status_label.configure(text="No changes entered.", fg=TEXT_LIGHT)
             return
+
+        refresh_restock_requests()
 
         self.status_label.configure(
             text=f"✅  {len(updated)} slot(s) updated successfully.", fg=GREEN)
@@ -1234,10 +1248,14 @@ class MaintenanceTicketsScreen(tk.Frame):
 class RestockRequestsScreen(tk.Frame):
     PRODUCT = "Product Restock"
     COLLECT = "Cash Collection"
-    REFILL  = "Coin Refill"
-    CATEGORIES = ["All Requests", PRODUCT, COLLECT, REFILL]
+    REFILL_COINS  = "Coin Refill"
+    COLLECT_COINS = "Coin Collection"
+    OTHER = "Other Requests"
+    CATEGORIES = ["All Requests", PRODUCT, COLLECT, REFILL_COINS, COLLECT_COINS, OTHER]
 
     def __init__(self, master):
+        refresh_restock_requests()
+
         super().__init__(master, bg=BG_MAIN)
 
         try:
@@ -1258,11 +1276,13 @@ class RestockRequestsScreen(tk.Frame):
         text = (reason or "").lower()
         if "bills above" in text:
             return cls.COLLECT
-        if "coins below" in text:
-            return cls.REFILL
-        if "slot" in text:
+        elif "coins below" in text:
+            return cls.REFILL_COINS
+        elif "coins " in text:
+            return cls.COLLECT_COINS
+        elif "slot" in text:
             return cls.PRODUCT
-        return cls.PRODUCT
+        return cls.OTHER
 
     def _build(self):
         screen_header(self, "📋  View Restocker Requests",
@@ -1297,6 +1317,7 @@ class RestockRequestsScreen(tk.Frame):
         self.count_label.pack(side="right", padx=16)
 
     def _on_filter_change(self, event=None):
+        refresh_restock_requests()
         choice = self.filter_var.get()
         if choice == self.CATEGORIES[0]:
             self.filtered = list(self.requests)
@@ -1307,6 +1328,7 @@ class RestockRequestsScreen(tk.Frame):
         self._render_list()
 
     def _render_list(self):
+        refresh_restock_requests()
         self.count_label.configure(text=f"{len(self.filtered)} open")
 
         if not self.filtered:
@@ -1348,12 +1370,14 @@ class RestockRequestsScreen(tk.Frame):
         tk.Label(bottom, text=f"Assigned: {worker}",
                  font=("Segoe UI", 9), fg=TEXT_LIGHT, bg=BG_WHITE, anchor="w"
                  ).pack(side="left")
-        tk.Button(bottom, text="✓ Resolved",
+        """ This is disabled because restockers don't resolve from this screen. The system detects they're resolved automatically when the correct action is taken.
+        tk.Button(bottom, text="Mark As Resolved ✓",
                   font=("Segoe UI", 9, "bold"), fg=BG_WHITE, bg=GREEN,
                   activebackground=GREEN, activeforeground=BG_WHITE,
                   relief="flat", cursor="hand2", padx=10, pady=2,
                   command=lambda rid=int(r["RestockRequestID"]): self._resolve(rid)
                   ).pack(side="right")
+        """
 
     def _resolve(self, request_id):
         try:
@@ -1362,6 +1386,7 @@ class RestockRequestsScreen(tk.Frame):
             messagebox.showerror("Database Error", f"Could not resolve request:\n{e}")
             return
         self.master.show_restock_requests()
+        refresh_restock_requests()
 
 
 # ═══════════════════════════════════════════════════════════════
@@ -1371,6 +1396,7 @@ class RestockRequestsScreen(tk.Frame):
 # ═══════════════════════════════════════════════════════════════
 class UpdateCashLevelScreen(tk.Frame):
     def __init__(self, master):
+        refresh_restock_requests()
         super().__init__(master, bg=BG_MAIN)
 
         # Load money handler data from the database
@@ -1457,7 +1483,7 @@ class UpdateCashLevelScreen(tk.Frame):
             col_hdr.pack_propagate(False)
             # edit : added new column "max amount (coins only)"
             total_amounts = db_connection.get_total_currency_amounts(self.master.machine_id)
-            for h, w in [("Denomination", 24), ("Type", 12), ("Count", 10), ("Max Amount (Coins Only)", 20)]:
+            for h, w in [("Denomination", 24), ("Type", 12), ("Count", 10), ("Max Amount", 20)]:
                 tk.Label(col_hdr, text=h, font=("Segoe UI", 8, "bold"),
                          fg=BG_WHITE, bg=ACCENT, width=w, anchor="w"
                          ).pack(side="left", padx=8, pady=4)
@@ -1737,6 +1763,9 @@ class UpdateCashLevelScreen(tk.Frame):
                   f"Total:    ${total:.2f}\n"
                   f"Items:    {breakdown}\n"
                   f"Worker:   {selected}"))
+        
+        refresh_restock_requests()
+
         # Reload so the status panel reflects new counts.
         self.destroy()
         self.master.show_cash_level()
@@ -1857,6 +1886,7 @@ class UpdateMachineInfoScreen(tk.Frame):
 # ═══════════════════════════════════════════════════════════════
 class ViewTransactionsScreen(tk.Frame):
     def __init__(self, master):
+        refresh_restock_requests()
         super().__init__(master, bg=BG_MAIN)
 
         try:
@@ -1992,6 +2022,7 @@ class ViewTransactionsScreen(tk.Frame):
 # Admin views, adds, edits, and removes service workers.
 # ═══════════════════════════════════════════════════════════════
 class ManageWorkersScreen(tk.Frame):
+    refresh_restock_requests()
     def __init__(self, master):
         super().__init__(master, bg=BG_MAIN)
         self._editing_id = None
@@ -2012,6 +2043,7 @@ class ManageWorkersScreen(tk.Frame):
         super().destroy()
 
     def _load_workers(self):
+        refresh_restock_requests()
         try:
             self.workers = db_connection.get_all_service_workers()
         except Exception as e:
@@ -2204,6 +2236,7 @@ class ManageWorkersScreen(tk.Frame):
         self._build_table()
         self._cancel_edit()
         self._status_lbl.configure(text=msg)
+        refresh_restock_requests()
 
     def _remove_worker(self, worker):
         name = worker.get("Name") or f"ID {worker['WorkerID']}"
@@ -2222,9 +2255,12 @@ class ManageWorkersScreen(tk.Frame):
         self._load_workers()
         self._build_table()
         self._status_lbl.configure(text=f"✅  Worker '{name}' removed.")
+        refresh_restock_requests()
 
 
 # ── App entry point ─────────────────────────────────────────────
 if __name__ == "__main__":
     app = VendingMachineApp()
+    # make sure db is correct
+    refresh_restock_requests()
     app.mainloop()

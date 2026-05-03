@@ -5,6 +5,7 @@
 # This module bridges the GUI with the backend MySQL database
 
 import math
+import random
 import mysql.connector
 from datetime import datetime
 
@@ -18,6 +19,20 @@ def get_connection():
         database="vendingmachine"
     )
 
+# EDIT : needed for service worker logic throughout most functions
+# Retrieves one service worker ID of the specified type back. Is random, picks one of the possible ones
+def get_random_service_worker(typeIn, machine_id=1):
+    conn = get_connection()
+    cursor = conn.cursor()
+
+    cursor.execute("SELECT WorkerID FROM ServiceWorker WHERE MachineID = %s AND WorkerType = %s", (machine_id, typeIn,))
+    results = cursor.fetchall()
+
+    cursor.close()
+    conn.close()
+    if len(results) <= 0:
+        return -1
+    return random.choice(results)[0]
 
 # ═══════════════════════════════════════════════════════════════
 # MACHINE SLOT / PRODUCT FUNCTIONS
@@ -381,7 +396,11 @@ def record_cash_sale(product_id, machine_id, tax, cash_given, price=0.0):
 # Checks if a slot's product count has fallen below its restock threshold
 # If so, creates a new restock request in the database
 # Called after each sale to monitor inventory levels automatically
-def check_and_create_restock_request(slot_code, worker_id=1):
+def check_and_create_restock_request(slot_code, worker_id=get_random_service_worker("Restocker")):
+    # check for an empty service worker table
+    if worker_id <= -1:
+        return
+    
     conn = get_connection()
     cursor = conn.cursor(dictionary=True)
 
@@ -410,6 +429,160 @@ def check_and_create_restock_request(slot_code, worker_id=1):
     cursor.close()
     conn.close()
 
+# checks if a currency has fallen below or above its restock thresholds
+# if so, creates a new restock request in the database
+# only does so if that specific restock request has NOT been made yet
+# called after each sale to monitor inventory levels automatically
+# returns boolean array with : [coin_under, coin_over, bills_over]
+def check_and_create_currency_restock_request(currency_id, worker_id=get_random_service_worker("Restocker")):
+    # check for empty service worker table
+    if worker_id <= -1:
+        return
+    
+    conn = get_connection()
+    cursor = conn.cursor(dictionary=True)
+
+    # get currencies current amount
+    cursor.execute("""
+        SELECT CurrentAmount, MaxAmount, CurrencyWorth FROM `currency` WHERE CurrencyID = %s;
+    """, tuple(str(currency_id)))
+    vals = cursor.fetchall()
+    curr_amt = vals[0].get("CurrentAmount")
+    max_amt = vals[0].get("MaxAmount")
+    curr_worth = vals[0].get("CurrencyWorth")
+
+    # get moneyhandler info (bill max and all threshs)
+    cursor.execute("""
+        SELECT BillRestockMaxThreshold, BillMaxAmount, CoinRestockMaxThreshold, CoinRestockMinThreshold FROM `MoneyHandler` 
+        WHERE MoneyHandlerID = (
+                SELECT MoneyHandlerID FROM Currency WHERE CurrencyID = %s LIMIT 1
+            );
+    """, tuple(str(currency_id)))
+    moneyhandler_info = cursor.fetchall()
+    #print(moneyhandler_info)
+
+    # get MoneyHandler restock requests
+    cursor.execute("""
+        SELECT ReasonForRequest FROM `RestockRequest`
+        WHERE MoneyHandlerID = (
+                SELECT MoneyHandlerID FROM Currency WHERE CurrencyID = %s
+            ) AND DateResolved IS NULL;
+    """, tuple(str(currency_id)))
+    money_requests = cursor.fetchall()
+
+    # check if bill, if so add up all bills and test for being over thresh
+    bills_over = False
+    if max_amt == None:
+        # add up 1 dollar bills
+        cursor.execute("""
+            SELECT CurrentAmount FROM `currency` WHERE CurrencyID = %s;
+        """, tuple(str(5)))
+        total = cursor.fetchall()[0].get("CurrentAmount")
+        # add up 5 dollar bills
+        cursor.execute("""
+            SELECT CurrentAmount FROM `currency` WHERE CurrencyID = %s;
+        """, tuple(str(6)))
+        total += cursor.fetchall()[0].get("CurrentAmount")
+        # check if total over billrestockmaxthreshold
+        max = moneyhandler_info[0].get("BillMaxAmount") * moneyhandler_info[0].get("BillRestockMaxThreshold")
+        if total >= max:
+            bills_over = True
+
+    # check if coin, if so see if over/under the thresh
+    coin_over = False
+    coin_under = False
+    if max_amt != None:
+        max = max_amt * moneyhandler_info[0].get("CoinRestockMaxThreshold")
+        min = max_amt * moneyhandler_info[0].get("CoinRestockMinThreshold")
+        # check for over
+        if curr_amt >= max:
+            coin_over = True
+        if curr_amt <= min:
+            coin_under = True
+    
+    # if bills_over, check to see if a bill restock request exists. if not, make one. if does, dont make one
+    # relies on the SAME reason for request format being used in every single bill request: "Restock request in "MoneyHandler" : bills above restock threshold."
+    if bills_over:
+        exists = False
+        for request in money_requests:
+            if "Restock request in \"MoneyHandler\" : bills above restock threshold." in request.get("ReasonForRequest"):
+                exists = True
+                break
+        # if not exists, make one
+        if exists != True:
+            cursor.execute("""
+                INSERT INTO RestockRequest (ServiceWorkerID, MoneyHandlerID, DateRequested, DateResolved, ReasonForRequest)
+                    VALUES (%s, (SELECT MoneyHandlerID FROM Currency WHERE CurrencyID = %s), %s, NULL, %s)
+            """, tuple((str(worker_id), str(currency_id), str(datetime.now().date()), "Restock request in \"MoneyHandler\" : bills above restock threshold.")))
+            conn.commit()
+
+    # if coins over, check to see if, for this specific coin, a restock request exists. if not, make one. if does, dont make one
+    # relies on the SAME reason for request format being used in every single coin request: "Restock request in "MoneyHandler" : "$value" coins below restock threshold." or "Restock request in "MoneyHandler" : "$value" coins above restock threshold." 
+    # in this format, the value for the coins must have a leading 0 if under 1 dollar.
+    if coin_over:
+        exists = False
+        for request in money_requests:
+            if "Restock request in \"MoneyHandler\" : \"$" in request.get("ReasonForRequest") and "\" coins above restock threshold." in request.get("ReasonForRequest") and str(curr_worth) in request.get("ReasonForRequest"):
+                exists = True
+                break
+        # if not exists, make one
+        if exists != True:
+            reason = "Restock request in \"MoneyHandler\" : \"$" + str(curr_worth) + "\" coins above restock threshold."
+            cursor.execute("""
+                INSERT INTO RestockRequest (ServiceWorkerID, MoneyHandlerID, DateRequested, DateResolved, ReasonForRequest)
+                    VALUES (%s, (SELECT MoneyHandlerID FROM Currency WHERE CurrencyID = %s), %s, NULL, %s)
+            """, tuple((str(worker_id), str(currency_id), str(datetime.now().date()), reason)))
+            conn.commit()
+
+    # do same check for coin under
+    if coin_under:
+        exists = False
+        for request in money_requests:
+            if "Restock request in \"MoneyHandler\" : \"$" in request.get("ReasonForRequest") and "\" coins below restock threshold." in request.get("ReasonForRequest") and str(curr_worth) in request.get("ReasonForRequest"):
+                exists = True
+                break
+        # if not exists, make one
+        if exists != True:
+            reason = "Restock request in \"MoneyHandler\" : \"$" + str(curr_worth) + "\" coins below restock threshold."
+            cursor.execute("""
+                INSERT INTO RestockRequest (ServiceWorkerID, MoneyHandlerID, DateRequested, DateResolved, ReasonForRequest)
+                VALUES (%s, (SELECT MoneyHandlerID FROM Currency WHERE CurrencyID = %s), %s, NULL, %s)
+            """, tuple((str(worker_id), str(currency_id), str(datetime.now().date()), reason)))
+            conn.commit()
+
+    cursor.close()
+    conn.close()
+    return([coin_under, coin_over, bills_over])
+
+# goes over all currencies and applies function check_and_create_currency_restock_request to them
+# returns boolean 2d array with [[coin_under, coin_over, bills_over], [coin_under, coin_over, bills_over], etc]
+def check_and_create_currency_restock_request_ALL(worker_id=None):
+    # check for empty service worker table
+    if worker_id != None and get_random_service_worker("Restocker") <= -1:
+        return
+    
+    conn = get_connection()
+    cursor = conn.cursor()
+
+    # get all currency IDs
+    cursor.execute("""
+        SELECT CurrencyID FROM Currency;
+    """)
+    ids = cursor.fetchall()
+    
+    # loop thru check_and_create_currency_restock_request with ids
+    rnd = False
+    if worker_id == None:
+        rnd = True
+    results = []
+    for id in ids:
+        if rnd:
+            worker_id = get_random_service_worker("Restocker")
+        results.append(check_and_create_currency_restock_request(id[0], worker_id))
+
+    cursor.close()
+    conn.close()
+    return results
 
 # Retrieves all unresolved restock requests (where DateResolved is NULL)
 # Returns a list of dictionaries with request details and assigned worker name
@@ -453,6 +626,141 @@ def resolve_restock_request(slot_code):
     cursor.close()
     conn.close()
 
+# Marks a currency restock request as resolved by setting its DateResolved to today IF it no longer needs it (is in the correct ranges)
+# called after a restocker restocks/empties any coins/bills
+def resolve_restock_request_currency(currency_id):
+    conn = get_connection()
+    cursor = conn.cursor(dictionary=True)
+
+    # get currencies current amount
+    cursor.execute("""
+        SELECT CurrentAmount, MaxAmount, CurrencyWorth FROM `currency` WHERE CurrencyID = %s;
+    """, tuple(str(currency_id)))
+    vals = cursor.fetchall()
+    curr_amt = vals[0].get("CurrentAmount")
+    max_amt = vals[0].get("MaxAmount")
+    curr_worth = vals[0].get("CurrencyWorth")
+
+    # get moneyhandler info (bill max and all threshs)
+    cursor.execute("""
+        SELECT BillRestockMaxThreshold, BillMaxAmount, CoinRestockMaxThreshold, CoinRestockMinThreshold FROM `MoneyHandler` 
+        WHERE MoneyHandlerID = (
+                SELECT MoneyHandlerID FROM Currency WHERE CurrencyID = %s LIMIT 1
+            );
+    """, tuple(str(currency_id)))
+    moneyhandler_info = cursor.fetchall()
+    #print(moneyhandler_info)
+
+    # get MoneyHandler restock requests
+    cursor.execute("""
+        SELECT ReasonForRequest, RestockRequestID FROM `RestockRequest`
+        WHERE MoneyHandlerID = (
+                SELECT MoneyHandlerID FROM Currency WHERE CurrencyID = %s
+            ) AND DateResolved IS NULL;
+    """, tuple(str(currency_id)))
+    money_requests = cursor.fetchall()
+
+    # check if bill, if so add up all bills and test for being over thresh
+    bills_over = False
+    if max_amt == None:
+        # add up 1 dollar bills
+        cursor.execute("""
+            SELECT CurrentAmount FROM `currency` WHERE CurrencyID = %s;
+        """, tuple(str(5)))
+        total = cursor.fetchall()[0].get("CurrentAmount")
+        # add up 5 dollar bills
+        cursor.execute("""
+            SELECT CurrentAmount FROM `currency` WHERE CurrencyID = %s;
+        """, tuple(str(6)))
+        total += cursor.fetchall()[0].get("CurrentAmount")
+        # check if total over billrestockmaxthreshold
+        max = moneyhandler_info[0].get("BillMaxAmount") * moneyhandler_info[0].get("BillRestockMaxThreshold")
+        if total >= max:
+            bills_over = True
+
+    # check if coin, if so see if over/under the thresh
+    coin_over = False
+    coin_under = False
+    if max_amt != None:
+        max = max_amt * moneyhandler_info[0].get("CoinRestockMaxThreshold")
+        min = max_amt * moneyhandler_info[0].get("CoinRestockMinThreshold")
+        # check for over
+        if curr_amt >= max:
+            coin_over = True
+        if curr_amt <= min:
+            coin_under = True
+
+    # check if bills aren't over and there is an open request. if so, close request
+    if bills_over != True:
+        target = None
+        for request in money_requests:
+            if "Restock request in \"MoneyHandler\" : bills above restock threshold." in request.get("ReasonForRequest"):
+                target = request
+                break
+        if target != None:
+            cursor.execute("""
+                UPDATE RestockRequest
+                    SET DateResolved = %s
+                    WHERE DateResolved IS NULL AND RestockRequestID = %s
+                    LIMIT 1;
+                """, (datetime.now().date(), target.get("RestockRequestID")))
+            conn.commit()
+
+    # check if coins aren't over, if so close request if exists
+    if coin_over != True:
+        target = None
+        for request in money_requests:
+            if "Restock request in \"MoneyHandler\" : \"$" in request.get("ReasonForRequest") and "\" coins above restock threshold." in request.get("ReasonForRequest") and str(curr_worth) in request.get("ReasonForRequest"):
+                target = request
+                break
+        if target != None:
+            cursor.execute("""
+                UPDATE RestockRequest
+                    SET DateResolved = %s
+                    WHERE DateResolved IS NULL AND RestockRequestID = %s
+                    LIMIT 1;
+                """, (datetime.now().date(), target.get("RestockRequestID")))
+            conn.commit()
+
+    # check if coins aren't under, if so close request if exists
+    if coin_under != True:
+        target = None
+        for request in money_requests:
+            if "Restock request in \"MoneyHandler\" : \"$" in request.get("ReasonForRequest") and "\" coins below restock threshold." in request.get("ReasonForRequest") and str(curr_worth) in request.get("ReasonForRequest"):
+                target = request
+                break
+        if target != None:
+            cursor.execute("""
+                UPDATE RestockRequest
+                    SET DateResolved = %s
+                    WHERE DateResolved IS NULL AND RestockRequestID = %s
+                    LIMIT 1;
+                """, (datetime.now().date(), target.get("RestockRequestID")))
+            conn.commit()
+
+    cursor.close()
+    conn.close()
+    return [coin_over, coin_under, bills_over]
+
+# goes through alll currencies and applies resolve_restock_request_currency() to them
+def resolve_restock_request_currency_ALL():
+    conn = get_connection()
+    cursor = conn.cursor()
+
+    # get all currency IDs
+    cursor.execute("""
+        SELECT CurrencyID FROM Currency;
+    """)
+    ids = cursor.fetchall()
+    
+    # loop thru check_and_create_currency_restock_request with ids
+    results = []
+    for id in ids:
+        results.append(resolve_restock_request_currency(id[0]))
+
+    cursor.close()
+    conn.close()
+    return results
 
 # Marks a single restock request resolved by its primary key.
 # Used by the "Resolved" button in the View Restocker Requests screen
@@ -657,7 +965,11 @@ def resolve_change_refill_alert(machine_id):
 # Inspects current cash state vs MoneyHandler thresholds and inserts an
 # auto restock request for any breach that doesn't already have an open one.
 # Called from RecordSaleScreen after a successful sale.
-def check_and_create_money_handler_requests(machine_id, worker_id=1):
+def check_and_create_money_handler_requests(machine_id, worker_id=get_random_service_worker("Restocker")):
+    # check for empty service worker table
+    if worker_id <= -1:
+        return
+    
     conn = get_connection()
     cursor = conn.cursor(dictionary=True)
 
@@ -781,7 +1093,11 @@ def get_all_transactions(machine_id):
 
 
 # Returns slot codes that have an open restock request assigned to a specific worker
-def get_slot_codes_with_open_restock_for_worker(worker_id):
+def get_slot_codes_with_open_restock_for_worker(worker_id=get_random_service_worker("Restocker")):
+    # check for empty service worker table
+    if worker_id <= -1:
+        return
+    
     conn = get_connection()
     cursor = conn.cursor()
 
@@ -824,7 +1140,6 @@ def get_service_workers(machine_id=1):
     cursor.close()
     conn.close()
     return results
-
 
 # Adds a new service worker to the database for this machine
 def add_service_worker(machine_id, name, worker_type, phone, email, company):
