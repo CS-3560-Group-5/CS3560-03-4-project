@@ -298,7 +298,7 @@ def check_cash_in(machine_id, cash_given=0):
 
     # check coins
     denom_count.reverse()
-    #print(denom_count)
+    
     for i, m in enumerate(curr_amounts):
         if m[2] != None and m[1] + denom_count[i] > m[2]:
             cursor.close()
@@ -434,7 +434,7 @@ def check_and_create_restock_request(slot_code, worker_id=get_random_service_wor
                 break
 
         # Create a restock request only if fill level is at or below the threshold
-        if max_amt > 0 and (count / max_amt) <= threshold and exists == False:
+        if max_amt > 0 and count <= threshold * max_amt and exists == False:
             cursor.execute("""
                 INSERT INTO RestockRequest (ServiceWorkerID, MoneyHandlerID, DateRequested, DateResolved, ReasonForRequest)
                 VALUES (%s, NULL, %s, NULL, %s)
@@ -459,7 +459,7 @@ def check_and_create_restock_request_ALL(worker_id=get_random_service_worker("Re
         SELECT SlotCode FROM MachineSlot;
     """)
     ids = cursor.fetchall()
-    print(ids)
+    
     # loop thru check_and_create_currency_restock_request with ids
     rnd = False
     if worker_id == None:
@@ -481,17 +481,61 @@ def resolve_slot_restock_request(slotcode):
 
     # get slot info
     cursor.execute("""
-        SELECT MaxAmount, ProductCount FROM MachineSlot
+        SELECT MaxAmount, ProductCount, RestockAtThreshold FROM MachineSlot
         WHERE SlotCode = %s;
     """, (slotcode,))
     slot_info = cursor.fetchall()
 
+    # exit early if slot is empty
+    if slot_info[0].get("ProductCount") == None or slot_info[0].get("MaxAmount") == None or slot_info[0].get("RestockAtThreshold") == None:
+        cursor.close()
+        conn.close()
+        return
+
     # get all unresolved restock requests 
     cursor.execute("""
-        SELECT RestockRequestID, ReasonForRequest FROM MachineSlot
-        WHERE DateResolved IS NULL;
-    """, (slotcode,))
+        SELECT RestockRequestID, ReasonForRequest FROM RestockRequest
+        WHERE DateResolved IS NULL AND MoneyHandlerID IS NULL;
+    """)
     requests = cursor.fetchall()
+
+    # check if slot under thresh
+    slot_under = True
+    if slot_info[0].get("ProductCount")  >= (slot_info[0].get("MaxAmount") * slot_info[0].get("RestockAtThreshold")):
+        slot_under = False
+
+    # check each restock request for the request from this slot (may not have one)
+    target = None
+    for request in requests:
+        if "Slot" in request.get("ReasonForRequest") and slotcode in request.get("ReasonForRequest"):
+            target = request
+
+    # add if conditions are right (there is a request and the )
+    if target != None and not slot_under:
+        cursor.execute("""
+                UPDATE RestockRequest
+                SET DateResolved = %s
+                WHERE RestockRequestID = %s
+            """, (datetime.now().date(), target.get("RestockRequestID")))
+        conn.commit()
+
+    cursor.close()
+    conn.close()
+
+# applies resolve_slot_restock_request() to ALL slots
+def resolve_slot_restock_request_ALL():
+    conn = get_connection()
+    cursor = conn.cursor()
+
+    # get all slot codes
+    cursor.execute("""
+        SELECT SlotCode from MachineSlot
+    """)
+    slots = cursor.fetchall()
+
+    # apply funct to each slot
+    for slot in slots:
+        resolve_slot_restock_request(slot[0])
 
     cursor.close()
     conn.close()
@@ -526,7 +570,7 @@ def check_and_create_currency_restock_request(currency_id, worker_id=get_random_
             );
     """, tuple(str(currency_id)))
     moneyhandler_info = cursor.fetchall()
-    #print(moneyhandler_info)
+    
 
     # get MoneyHandler restock requests
     cursor.execute("""
@@ -716,7 +760,7 @@ def resolve_restock_request_currency(currency_id):
             );
     """, tuple(str(currency_id)))
     moneyhandler_info = cursor.fetchall()
-    #print(moneyhandler_info)
+    
 
     # get MoneyHandler restock requests
     cursor.execute("""

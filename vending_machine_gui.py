@@ -30,7 +30,8 @@ BORDER     = "#dee2f0"   # Subtle border color for cards and separators
 def refresh_restock_requests():
         db_connection.check_and_create_currency_restock_request_ALL()   # check currency for any bills/coins that need a request
         db_connection.resolve_restock_request_currency_ALL()            # check currency for any bill/coin requests that need to be resolved
-        pass
+        db_connection.check_and_create_restock_request_ALL()            # check slot statuses for any slots that need a request
+        db_connection.resolve_slot_restock_request_ALL()                # check slots for any that need to be resolved
 
 # ── Helper: standard labeled input field ───────────────────────
 def labeled_entry(parent, label_text, var=None, height=None, bg=BG_WHITE):
@@ -2049,7 +2050,7 @@ class ManageWorkersScreen(tk.Frame):
         super().destroy()
 
     def _load_workers(self):
-        refresh_restock_requests()
+        #refresh_restock_requests()
         try:
             self.workers = db_connection.get_all_service_workers()
         except Exception as e:
@@ -2171,7 +2172,7 @@ class ManageWorkersScreen(tk.Frame):
         tk.Label(pad, text="Worker Type", font=("Segoe UI", 10, "bold"),
                  fg=TEXT_MID, bg=BG_WHITE).pack(anchor="w", pady=(10, 2))
         self._type_combo = ttk.Combobox(pad, textvariable=self._type_var,
-                                        values=["Restocker", "Technician", "Admin"],
+                                        values=["Restocker", "Technician"],
                                         font=("Segoe UI", 10))
         self._type_combo.pack(fill="x", ipady=4)
 
@@ -2244,8 +2245,20 @@ class ManageWorkersScreen(tk.Frame):
         self._status_lbl.configure(text=msg)
         refresh_restock_requests()
 
+    # helper function : counts number of worker "type" in  self.workers
+    def count_worker(self, workertype):
+        count = 0
+        for worker in self.workers:
+            if worker.get("WorkerType") == workertype:
+                count += 1
+        return count
+
     def _remove_worker(self, worker):
         name = worker.get("Name") or f"ID {worker['WorkerID']}"
+        if self.count_worker(worker.get("WorkerType")) <= 1:     # check if deleting last of worker. don't allow if so
+            messagebox.showwarning("Deletion canceled.", 
+                                   f"Database needs at least 1 of each worker type. Add another %s before deleting one." % worker.get("WorkerType"))
+            return
         if not messagebox.askyesno("Confirm Remove",
                                    f"Remove worker '{name}'?\n\n"
                                    f"Warning: all maintenance tickets and restock requests "
@@ -2261,7 +2274,7 @@ class ManageWorkersScreen(tk.Frame):
         self._load_workers()
         self._build_table()
         self._status_lbl.configure(text=f"✅  Worker '{name}' removed.")
-        refresh_restock_requests()
+        #refresh_restock_requests()
 
 
 # ── App entry point ─────────────────────────────────────────────
