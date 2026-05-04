@@ -408,7 +408,7 @@ class RecordSaleScreen(tk.Frame):
             # Price and quantity
             tk.Label(tile, text=f"${p['price']:.2f}", font=("Segoe UI", 10, "bold"),
                      fg=GREEN, bg=BG_WHITE).place(relx=0.5, rely=0.72, anchor="center")
-            qty_lbl = tk.Label(tile, text=f"Qty: {p['count']}", font=("Segoe UI", 7),
+            qty_lbl = tk.Label(tile, text=f"Qty: {p['count']} / {p['max']}", font=("Segoe UI", 7),
                                fg=TEXT_LIGHT, bg=BG_WHITE)
             qty_lbl.place(relx=0.95, rely=0.95, anchor="se")
             self.qty_labels[p["code"]] = qty_lbl
@@ -603,7 +603,7 @@ class RecordSaleScreen(tk.Frame):
 
         p["count"] = new_count
         if p["code"] in self.qty_labels:
-            self.qty_labels[p["code"]].configure(text=f"Qty: {new_count}")
+            self.qty_labels[p["code"]].configure(text=f"Qty: {new_count} / {p['max']}")
 
         # Display receipt in the green banner
         # EDIT : text was being cut off in receipt box. added some spaces in text to fix. also changed '─' amount from 28 to 20
