@@ -30,6 +30,7 @@ BORDER     = "#dee2f0"   # Subtle border color for cards and separators
 def refresh_restock_requests():
         db_connection.check_and_create_currency_restock_request_ALL()   # check currency for any bills/coins that need a request
         db_connection.resolve_restock_request_currency_ALL()            # check currency for any bill/coin requests that need to be resolved
+        pass
 
 # ── Helper: standard labeled input field ───────────────────────
 def labeled_entry(parent, label_text, var=None, height=None, bg=BG_WHITE):
@@ -1710,17 +1711,22 @@ class UpdateCashLevelScreen(tk.Frame):
             # Global bill cap (BillMaxAmount in MoneyHandler).
             if self.money_info:
                 bill_cap = float(self.money_info.get("BillMaxAmount") or 0)
+                bills_current = 0
+                for denom in self.currency_breakdown:
+                    if denom.get("CurrencyWorth") >= 1:
+                        bills_current += denom.get("CurrentAmount")
+                #print(self.denom_inputs)
                 if bill_cap > 0:
-                    bill_total_after = sum(
-                        r["current"] * r["worth"] for r in self.denom_inputs
-                        if r["worth"] >= 1.0
-                    ) + sum(d["count"] * d["worth"] for d in deltas
-                            if d["worth"] >= 1.0)
+                    bill_total_after = bills_current
+                    for item in self.denom_inputs:
+                        if item.get("max") == None:
+                            bill_total_after += int(item.get("count_var").get())
+                    print(bill_total_after)
                     if bill_total_after > bill_cap:
                         messagebox.showwarning(
                             "Over Bill Capacity",
                             f"This refill would push bill total to "
-                            f"${bill_total_after:.2f}, exceeding cap of ${bill_cap:.2f}.")
+                            f"{bill_total_after:.2f} bills, exceeding cap of {bill_cap} bills.")
                         return
         else:
             # Collect can't take more than what's there (the Empty checkbox enforces this).

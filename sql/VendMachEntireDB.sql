@@ -227,7 +227,7 @@ CREATE TABLE `restockrequest` (
 
 LOCK TABLES `restockrequest` WRITE;
 /*!40000 ALTER TABLE `restockrequest` DISABLE KEYS */;
-INSERT INTO `restockrequest` VALUES (1,2,1,'2025-03-20',NULL,'Restock request in \"MoneyHandler\" : \"$0.01\" coins below restock threshold.'),(2,2,1,'2026-03-25',NULL,'Restock request in \"MoneyHandler\" : bills above restock threshold.'),(3,2,NULL,'2026-03-30',NULL,'Restock request in \"MachineSlot\" : Slot \"2B\" Product \"Cheetos\" below restock threshold.'),(4,2,1,'2025-03-20',NULL,'Restock request in \"MoneyHandler\" : \"$0.1\" coins above restock threshold.'),(5,2,NULL,'2025-03-20','2025-03-21','Restock request in \"MachineSlot\" : Slot \"1E\" Product \"Twinkie\" below restock threshold.');
+INSERT INTO `restockrequest` VALUES (1,2,1,'2025-03-20',NULL,'Restock request in \"MoneyHandler\" : \"$0.01\" coins below restock threshold.');
 /*!40000 ALTER TABLE `restockrequest` ENABLE KEYS */;
 UNLOCK TABLES;
 

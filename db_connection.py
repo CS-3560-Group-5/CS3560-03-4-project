@@ -412,19 +412,86 @@ def check_and_create_restock_request(slot_code, worker_id=get_random_service_wor
     """, (slot_code,))
     row = cursor.fetchone()
 
+    # edit : grab all unresolved restock requests 
+    cursor.execute("""
+        SELECT ReasonForRequest
+        FROM RestockRequest
+        WHERE MoneyHandlerID IS NULL AND DateResolved IS NULL
+    """)
+    requests = cursor.fetchall()
+
+    exists = False
     if row and row["ProductCount"] is not None and row["MaxAmount"] is not None:
         count     = row["ProductCount"]
         max_amt   = row["MaxAmount"]
         threshold = row["RestockAtThreshold"] if row["RestockAtThreshold"] else 0.2
 
+        # edit : functionality to not make the same restock request multiple times
+        # sample restock request : Restock request in "MachineSlot" : Slot "1E" Product "Twinkie" below restock threshold.
+        for request in requests:
+            if "Slot" in request.get("ReasonForRequest") and slot_code in request.get("ReasonForRequest"):
+                exists = True
+                break
+
         # Create a restock request only if fill level is at or below the threshold
-        if max_amt > 0 and (count / max_amt) <= threshold:
+        if max_amt > 0 and (count / max_amt) <= threshold and exists == False:
             cursor.execute("""
                 INSERT INTO RestockRequest (ServiceWorkerID, MoneyHandlerID, DateRequested, DateResolved, ReasonForRequest)
                 VALUES (%s, NULL, %s, NULL, %s)
             """, (worker_id, datetime.now().date(),
-                  f'Auto restock request: Slot "{slot_code}" is at or below restock threshold.'))
+                  f'Restock request in \"MachineSlot\" : Slot "{slot_code}" is at or below restock threshold.'))
             conn.commit()
+
+    cursor.close()
+    conn.close()
+    return exists
+
+def check_and_create_restock_request_ALL(worker_id=get_random_service_worker("Restocker")):
+    # check for an empty service worker table
+    if worker_id <= -1:
+        return
+    
+    conn = get_connection()
+    cursor = conn.cursor()
+
+    # get all slot codes
+    cursor.execute("""
+        SELECT SlotCode FROM MachineSlot;
+    """)
+    ids = cursor.fetchall()
+    print(ids)
+    # loop thru check_and_create_currency_restock_request with ids
+    rnd = False
+    if worker_id == None:
+        rnd = True
+    results = []
+    for id in ids:
+        if rnd:
+            worker_id = get_random_service_worker("Restocker")
+        results.append(check_and_create_restock_request(id[0], worker_id))
+
+    cursor.close()
+    conn.close()
+    return results
+
+# checks a slot restock requests to see if it can be closed (is above the threshold now)
+def resolve_slot_restock_request(slotcode):
+    conn = get_connection()
+    cursor = conn.cursor(dictionary=True)
+
+    # get slot info
+    cursor.execute("""
+        SELECT MaxAmount, ProductCount FROM MachineSlot
+        WHERE SlotCode = %s;
+    """, (slotcode,))
+    slot_info = cursor.fetchall()
+
+    # get all unresolved restock requests 
+    cursor.execute("""
+        SELECT RestockRequestID, ReasonForRequest FROM MachineSlot
+        WHERE DateResolved IS NULL;
+    """, (slotcode,))
+    requests = cursor.fetchall()
 
     cursor.close()
     conn.close()
@@ -502,7 +569,7 @@ def check_and_create_currency_restock_request(currency_id, worker_id=get_random_
     
     # if bills_over, check to see if a bill restock request exists. if not, make one. if does, dont make one
     # relies on the SAME reason for request format being used in every single bill request: "Restock request in "MoneyHandler" : bills above restock threshold."
-    if bills_over:
+    if bills_over and (currency_id == 5 or currency_id == 6):
         exists = False
         for request in money_requests:
             if "Restock request in \"MoneyHandler\" : bills above restock threshold." in request.get("ReasonForRequest"):
@@ -519,7 +586,7 @@ def check_and_create_currency_restock_request(currency_id, worker_id=get_random_
     # if coins over, check to see if, for this specific coin, a restock request exists. if not, make one. if does, dont make one
     # relies on the SAME reason for request format being used in every single coin request: "Restock request in "MoneyHandler" : "$value" coins below restock threshold." or "Restock request in "MoneyHandler" : "$value" coins above restock threshold." 
     # in this format, the value for the coins must have a leading 0 if under 1 dollar.
-    if coin_over:
+    if coin_over and (currency_id != 5 or currency_id != 6):
         exists = False
         for request in money_requests:
             if "Restock request in \"MoneyHandler\" : \"$" in request.get("ReasonForRequest") and "\" coins above restock threshold." in request.get("ReasonForRequest") and str(curr_worth) in request.get("ReasonForRequest"):
@@ -535,7 +602,7 @@ def check_and_create_currency_restock_request(currency_id, worker_id=get_random_
             conn.commit()
 
     # do same check for coin under
-    if coin_under:
+    if coin_under and (currency_id != 5 or currency_id != 6):
         exists = False
         for request in money_requests:
             if "Restock request in \"MoneyHandler\" : \"$" in request.get("ReasonForRequest") and "\" coins below restock threshold." in request.get("ReasonForRequest") and str(curr_worth) in request.get("ReasonForRequest"):
@@ -691,7 +758,7 @@ def resolve_restock_request_currency(currency_id):
             coin_under = True
 
     # check if bills aren't over and there is an open request. if so, close request
-    if bills_over != True:
+    if bills_over != True and (currency_id == 5 or currency_id == 6):
         target = None
         for request in money_requests:
             if "Restock request in \"MoneyHandler\" : bills above restock threshold." in request.get("ReasonForRequest"):
@@ -707,7 +774,7 @@ def resolve_restock_request_currency(currency_id):
             conn.commit()
 
     # check if coins aren't over, if so close request if exists
-    if coin_over != True:
+    if coin_over != True and (currency_id != 5 or currency_id != 6):
         target = None
         for request in money_requests:
             if "Restock request in \"MoneyHandler\" : \"$" in request.get("ReasonForRequest") and "\" coins above restock threshold." in request.get("ReasonForRequest") and str(curr_worth) in request.get("ReasonForRequest"):
@@ -723,7 +790,7 @@ def resolve_restock_request_currency(currency_id):
             conn.commit()
 
     # check if coins aren't under, if so close request if exists
-    if coin_under != True:
+    if coin_under != True and (currency_id != 5 or currency_id != 6):
         target = None
         for request in money_requests:
             if "Restock request in \"MoneyHandler\" : \"$" in request.get("ReasonForRequest") and "\" coins below restock threshold." in request.get("ReasonForRequest") and str(curr_worth) in request.get("ReasonForRequest"):
