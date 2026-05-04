@@ -310,7 +310,7 @@ def check_cash_in(machine_id, cash_given=0):
         if m[2] == None:
             billCount += m[1]
     # check if counted bills are too much
-    if billCount > billMax:
+    if billCount + denom_count[4] + denom_count[5] > billMax:
         cursor.close()
         conn.close()
         return False
